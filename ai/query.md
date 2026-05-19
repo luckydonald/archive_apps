@@ -48,3 +48,12 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ can't we making it use clonefile if supported? Sounds more efficient.
 
+❯ Then use `CHECKSUM zip: exists` not `verified`, and do check it if `--verify-zips` is set (for all zips, not in the copy loop).
+The checksum should be based on the zip's contents there. This is to confirm if the zip is written correctly. This would happen before the copy loop.
+
+For normal operation, `CHECKSUM zip: found` is enough.
+If there's no checksum, it should do `CHECKSUM zip: missing, creating…`, and do that (i think it does).
+
+Then should be compared with that one of the actial Apllication, and then see if it's needs to be overwritten (asked) (i think it does).
+when copying, that one can be used, and verifyied with the zip after writing, using the same logic as the initial loop.
+
