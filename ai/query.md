@@ -44,3 +44,5 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ which checksum is written? The zip file? which source is checksummed? the `CHECKSUM: match` should be probably `CHECKSUM zip: match` and `CHECKSUM app: match`?
 
+❯ @ai/errors/2.md
+
