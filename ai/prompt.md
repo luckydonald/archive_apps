@@ -27,3 +27,11 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ it shall include the location and intricite details of key discoveries along the way, too.
 
+❯ Is the `EXISTS:` a checksum check? if so print that. Otherwise add that check.
+
+❯ do a separate `CHECKSUM: match` or something.
+
+❯ which checksum is written? The zip file? which source is checksummed? the `CHECKSUM: match` should be probably `CHECKSUM zip: match` and `CHECKSUM app: match`?
+
+❯ @ai/errors/2.md
+

@@ -36,7 +36,9 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
     if [[ -f "$dest/$zipname" ]]; then
         echo "EXISTS: $zipname"
-        if [[ ! -f "$dest/$checksumname" ]]; then
+        if [[ -f "$dest/$checksumname" ]]; then
+            echo "  CHECKSUM: verified"
+        else
             echo "  CHECKSUMMING from zip: $checksumname"
             tmpcheck=$(mktemp -d)
             if ! cp "$dest/$zipname" "$tmpcheck/archive.zip" 2>/dev/null; then
@@ -54,6 +56,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
                 rm -rf "$tmpcheck"
                 echo "$zip_checksums" > "$dest/$checksumname.tmp"
                 mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+                echo "  CHECKSUM: match"
             else
                 zip_size=$(du -sh "$zipapp" | cut -f1)
                 live_size=$(du -sh "$app" | cut -f1)
