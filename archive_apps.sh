@@ -54,13 +54,15 @@ checksums_from_zip() {
 if [[ "$verify_zips" == "true" ]]; then
     _zips=(); while IFS= read -r _l; do _zips+=("$_l"); done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
     total=${#_zips[@]}
+    width=${#total}
     echo "Verifying $total zip(s)…"
     i=0
     for zip in "${_zips[@]}"; do
         i=$(( i + 1 ))
+        printf -v idx '%0*d' "$width" "$i"
         zipname=$(basename "$zip")
         checksumfile="${zip%.zip}.checksums.txt"
-        echo "$i/$total VERIFY: $zipname"
+        echo "VERIFY $idx/$total: $zipname"
         if [[ -f "$checksumfile" ]]; then
             if ! actual=$(checksums_from_zip "$zip"); then
                 echo "  CHECKSUM zip: SKIPPED (unreadable)"
@@ -85,10 +87,12 @@ fi
 
 _apps=(); while IFS= read -r _l; do _apps+=("$_l"); done < <(find /Applications -maxdepth 2 -name "*.app" -type d)
 total=${#_apps[@]}
+width=${#total}
 echo "Checking $total app(s)…"
 i=0
 for app in "${_apps[@]}"; do
     i=$(( i + 1 ))
+    printf -v idx '%0*d' "$width" "$i"
     plist="$app/Contents/Info.plist"
     mobile=""
     if [[ ! -f "$plist" ]]; then
@@ -96,7 +100,7 @@ for app in "${_apps[@]}"; do
         mobile="mobile@"
     fi
     if [[ ! -f "$plist" ]]; then
-        echo "$i/$total SKIP (no Info.plist): $app"
+        echo "SKIP $idx/$total: $app (no Info.plist)"
         continue
     fi
 
@@ -108,7 +112,7 @@ for app in "${_apps[@]}"; do
     zipname="${name}.app@${mobile}${version}.zip"
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
     if [[ -f "$dest/$zipname" ]]; then
-        echo "$i/$total EXISTS: $zipname"
+        echo "EXISTS $idx/$total: $zipname"
         if [[ -f "$dest/$checksumname" ]]; then
             echo "  CHECKSUM zip: found"
         else
@@ -173,7 +177,7 @@ for app in "${_apps[@]}"; do
         continue
     fi
 
-    echo "$i/$total ARCHIVING: $zipname"
+    echo "ARCHIVING $idx/$total: $zipname"
     versioned="${name} ${version}.app"
     live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
     tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
