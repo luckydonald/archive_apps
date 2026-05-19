@@ -46,3 +46,5 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ @ai/errors/2.md
 
+❯ can't we making it use clonefile if supported? Sounds more efficient.
+

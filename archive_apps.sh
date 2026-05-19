@@ -12,6 +12,12 @@ dest="${1:-/Users/Shared/App Versions}"
 mkdir -p "$dest"
 dest=$(cd "$dest" && pwd)
 
+if [[ "$(stat -f "%d" "$dest")" == "$(stat -f "%d" /Applications)" ]]; then
+    cp_flags=(-cR)
+else
+    cp_flags=(-R)
+fi
+
 cleanup() { rm -f "$dest"/*.zip.tmp "$dest"/*.txt.tmp; }
 trap cleanup EXIT
 
@@ -69,7 +75,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
                         rm -f "$dest/$zipname"
                         versioned="${name} ${version}.app"
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp -R "$app" "$tmpdir/$versioned"
+                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
                         rm -rf "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
@@ -84,7 +90,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
                         versioned="${name} ${version}.app"
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp -R "$app" "$tmpdir/$versioned"
+                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
                         rm -rf "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
@@ -103,7 +109,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
     echo "ARCHIVING: $zipname"
     versioned="${name} ${version}.app"
     tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-    cp -R "$app" "$tmpdir/$versioned"
+    cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
     (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
     rm -rf "$tmpdir"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
