@@ -36,3 +36,5 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ dockcument the issue and what we found detailed at ai/docs/*.md.
 
+❯ it shall include the location and intricite details of key discoveries along the way, too.
+
