@@ -1,18 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
-verify_zips=false
+verify_mode="none"
 dest_arg=""
 
 for arg in "$@"; do
     case "$arg" in
         -h|--help)
-            echo "Usage: $(basename "$0") [--verify-zips] [destination]"
-            echo "  --verify-zips  verify all existing zip archives before archiving"
-            echo "  destination    directory to archive apps into (default: /Users/Shared/App Versions)"
+            echo "Usage: $(basename "$0") [options] [destination]"
+            echo "  --verify-zips     extract and verify all zips against their checksum files"
+            echo "  --verify-new      verify only zips/checksums not yet in the checksum index"
+            echo "  --verify-changed  verify zips whose index hash differs from current file"
+            echo "  destination       archive directory (default: /Users/Shared/App Versions)"
             exit 0 ;;
-        --verify-zips)
-            verify_zips=true ;;
+        --verify-zips)    verify_mode="zips" ;;
+        --verify-new)     verify_mode="new" ;;
+        --verify-changed) verify_mode="changed" ;;
         -*)
             echo "Unknown option: $arg" >&2; exit 1 ;;
         *)
@@ -51,19 +54,60 @@ checksums_from_zip() {
     printf '%s' "$result"
 }
 
-if [[ "$verify_zips" == "true" ]]; then
+if [[ "$verify_mode" != "none" ]]; then
+    index_file="$dest/_checksum_index_.txt"
+    index_tmp="$dest/_checksum_index_.txt.tmp"
+    : > "$index_tmp"
+
     _zips=(); while IFS= read -r _l; do _zips+=("$_l"); done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
     total=${#_zips[@]}
     width=${#total}
-    echo "Verifying $total zip(s)…"
+    echo "Verifying $total zip(s) [--verify-$verify_mode]…"
     i=0
     for zip in "${_zips[@]}"; do
         i=$(( i + 1 ))
         printf -v idx '%0*d' "$width" "$i"
         zipname=$(basename "$zip")
         checksumfile="${zip%.zip}.checksums.txt"
+        checksumname=$(basename "$checksumfile")
         echo "VERIFY $idx/$total: $zipname"
 
+        # Mode-specific skip check
+        skip=false
+        current_zip_hash=""
+        if [[ "$verify_mode" == "new" && -f "$index_file" ]]; then
+            if awk -v n="$zipname"     '$2==n{f=1} END{exit !f}' "$index_file" && \
+               awk -v n="$checksumname" '$2==n{f=1} END{exit !f}' "$index_file"; then
+                skip=true
+            fi
+        elif [[ "$verify_mode" == "changed" && -f "$index_file" ]]; then
+            current_zip_hash=$(shasum -a 256 "$zip" 2>/dev/null | awk '{print $1}')
+            stored_zip_hash=$(awk -v n="$zipname" '$2==n{print $1; exit}' "$index_file" 2>/dev/null)
+            if [[ -n "$stored_zip_hash" && "$current_zip_hash" == "$stored_zip_hash" ]]; then
+                skip=true
+            fi
+        fi
+
+        if [[ "$skip" == "true" ]]; then
+            if [[ "$verify_mode" == "new" ]]; then
+                echo "  INDEXED: already verified"
+                awk -v n="$zipname"      '$2==n' "$index_file" >> "$index_tmp"
+                awk -v n="$checksumname" '$2==n' "$index_file" >> "$index_tmp"
+            else
+                echo "  UNCHANGED: hash matches index"
+                echo "$current_zip_hash  $zipname" >> "$index_tmp"
+                stored_cs=$(awk -v n="$checksumname" '$2==n' "$index_file" 2>/dev/null)
+                if [[ -n "$stored_cs" ]]; then
+                    echo "$stored_cs" >> "$index_tmp"
+                elif [[ -f "$checksumfile" ]]; then
+                    cs_hash=$(shasum -a 256 "$checksumfile" | awk '{print $1}')
+                    echo "$cs_hash  $checksumname" >> "$index_tmp"
+                fi
+            fi
+            continue
+        fi
+
+        # Full extraction and verification
         tmpcheck=$(mktemp -d)
         if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
             rm -rf "$tmpcheck"
@@ -94,7 +138,19 @@ if [[ "$verify_zips" == "true" ]]; then
             mv "${checksumfile}.tmp" "$checksumfile"
             echo "  CHECKSUM: written"
         fi
+
+        # Add/fix index entries for this zip and its checksums file
+        [[ -z "$current_zip_hash" ]] && current_zip_hash=$(shasum -a 256 "$zip" | awk '{print $1}')
+        echo "$current_zip_hash  $zipname" >> "$index_tmp"
+        if [[ -f "$checksumfile" ]]; then
+            cs_hash=$(shasum -a 256 "$checksumfile" | awk '{print $1}')
+            echo "$cs_hash  $checksumname" >> "$index_tmp"
+        fi
     done
+
+    sort -k2 "$index_tmp" -o "$index_tmp"
+    mv "$index_tmp" "$index_file"
+    echo "INDEX: written → $(basename "$index_file")"
 fi
 
 _apps=(); while IFS= read -r _l; do _apps+=("$_l"); done < <(find /Applications -maxdepth 2 -name "*.app" -type d)
