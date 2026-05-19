@@ -101,3 +101,6 @@ obviously it's always either VERIFIED or FAILED etc.
 
 ❯ I didn't see a `_checksum_index_.txt` be created? Only a `.tmp` one, but that seem to be deleted with `ctrl-c`...
 
+❯ It doesn't seem to `INDEXED`-skip all of the apps... (only the mobile ones from the sample size of 3?)
+For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already verified` or `CACHE-MISS 🔸: app` and/or `CACHE-MISS 🔸: zip`
+
