@@ -112,3 +112,5 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ Oh, fun new feature idea: Mark the files in Finder with the color labels. Probably `xattr` command or something. Actually, ignore this for now, will come back to this later.
 
+❯ Another thought for another time, maybe-never: Freshly writing a zip file should write the checksums to the index too, so at least that would not be recomputed.
+
