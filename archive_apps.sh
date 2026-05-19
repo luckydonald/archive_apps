@@ -53,7 +53,10 @@ checksums_from_zip() {
         rm -rf "$tmpcheck"
         return 1
     fi
-    ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"
+    if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
+        rm -rf "$tmpcheck"
+        return 1
+    fi
     rm -f "$tmpcheck/archive.zip"
     zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
     result=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
@@ -126,7 +129,11 @@ if [[ "$verify_mode" != "none" ]]; then
             echo "  SKIPPED ⚠️: not readable (possibly not synced locally)"
             continue
         fi
-        ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"
+        if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
+            rm -rf "$tmpcheck"
+            echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
+            continue
+        fi
         rm -f "$tmpcheck/archive.zip"
         zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
         app_size=$(du -sh "$zipapp" | cut -f1)
@@ -245,7 +252,11 @@ for app in "${_apps[@]}"; do
                 rm -rf "$tmpcheck"
                 continue
             fi
-            ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"
+            if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
+                rm -rf "$tmpcheck"
+                echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
+                continue
+            fi
             rm -f "$tmpcheck/archive.zip"
             zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
             zip_checksums=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
