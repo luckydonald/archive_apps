@@ -79,39 +79,42 @@ if [[ "$verify_mode" != "none" ]]; then
         checksumname=$(basename "$checksumfile")
         echo "VERIFY $idx/$total: $zipname"
 
-        # Mode-specific skip check
-        skip=false
-        current_zip_hash=""
-        if [[ "$verify_mode" == "new" && -f "$index_file" ]]; then
-            if awk -v n="$zipname"     '$2==n{f=1} END{exit !f}' "$index_file" && \
-               awk -v n="$checksumname" '$2==n{f=1} END{exit !f}' "$index_file"; then
-                skip=true
-            fi
-        elif [[ "$verify_mode" == "changed" && -f "$index_file" ]]; then
-            current_zip_hash=$(shasum -a 256 "$zip" 2>/dev/null | awk '{print $1}')
-            stored_zip_hash=$(awk -v n="$zipname" '$2==n{print $1; exit}' "$index_file" 2>/dev/null)
-            if [[ -n "$stored_zip_hash" && "$current_zip_hash" == "$stored_zip_hash" ]]; then
-                skip=true
-            fi
+        # Look up stored hashes using grep -F so spaces in filenames are handled correctly
+        current_zip_hash="" zip_stored="" cs_stored=""
+        if [[ "$verify_mode" != "zips" && -f "$index_file" ]]; then
+            zip_stored=$(grep -F "  $zipname" "$index_file" 2>/dev/null | awk '{print $1}')
+            cs_stored=$(grep -F "  $checksumname" "$index_file" 2>/dev/null | awk '{print $1}')
         fi
 
-        if [[ "$skip" == "true" ]]; then
-            if [[ "$verify_mode" == "new" ]]; then
-                echo "  INDEXED: already verified"
-                awk -v n="$zipname"      '$2==n' "$index_file" >> "$index_tmp"
-                awk -v n="$checksumname" '$2==n' "$index_file" >> "$index_tmp"
-            else
-                echo "  UNCHANGED: hash matches index"
-                echo "$current_zip_hash  $zipname" >> "$index_tmp"
-                stored_cs=$(awk -v n="$checksumname" '$2==n' "$index_file" 2>/dev/null)
-                if [[ -n "$stored_cs" ]]; then
-                    echo "$stored_cs" >> "$index_tmp"
-                elif [[ -f "$checksumfile" ]]; then
-                    cs_hash=$(shasum -a 256 "$checksumfile" | awk '{print $1}')
-                    echo "$cs_hash  $checksumname" >> "$index_tmp"
-                fi
+        if [[ "$verify_mode" == "new" ]]; then
+            [[ -n "$zip_stored" ]] && echo "  zip: $zip_stored" || echo "  CACHE-MISS 🔸: zip"
+            [[ -n "$cs_stored"  ]] && echo "  app: $cs_stored"  || echo "  CACHE-MISS 🔸: app"
+            if [[ -n "$zip_stored" && -n "$cs_stored" ]]; then
+                echo "  INDEXED ✅: already verified"
+                echo "$zip_stored  $zipname"     >> "$index_tmp"
+                echo "$cs_stored  $checksumname" >> "$index_tmp"
+                continue
             fi
-            continue
+
+        elif [[ "$verify_mode" == "changed" ]]; then
+            current_zip_hash=$(shasum -a 256 "$zip" 2>/dev/null | awk '{print $1}')
+            [[ -n "$current_zip_hash" ]] && echo "  zip: $current_zip_hash" || echo "  CACHE-MISS 🔸: zip"
+            [[ -n "$zip_stored" && "$current_zip_hash" != "$zip_stored" ]] && echo "  CHANGED 🔸: zip"
+            cs_current=""
+            if [[ -f "$checksumfile" ]]; then
+                cs_current=$(shasum -a 256 "$checksumfile" 2>/dev/null | awk '{print $1}')
+                [[ -n "$cs_current" ]] && echo "  app: $cs_current" || echo "  CACHE-MISS 🔸: app"
+                [[ -n "$cs_stored" && "$cs_current" != "$cs_stored" ]] && echo "  CHANGED 🔸: app"
+            else
+                echo "  CACHE-MISS 🔸: app"
+            fi
+            if [[ -n "$current_zip_hash" && "$current_zip_hash" == "$zip_stored" && \
+                  -n "$cs_current" && "$cs_current" == "$cs_stored" ]]; then
+                echo "  UNCHANGED ✅: hash matches index"
+                echo "$current_zip_hash  $zipname"  >> "$index_tmp"
+                echo "$cs_current  $checksumname"   >> "$index_tmp"
+                continue
+            fi
         fi
 
         # Full extraction and verification
