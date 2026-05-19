@@ -106,3 +106,5 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ Uh, now it stops after 4 without a printed error? (the first one after pre-existing matching hashes)
 
+❯ @ai/errors/4.md
+
