@@ -43,6 +43,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+rm_retry() {
+    local dir="$1" attempt
+    for attempt in 1 2 3 4 5; do
+        rm -rf "$dir" && return 0
+        sleep 1
+    done
+    echo "ERROR: failed to remove $dir after 5 attempts" >&2
+    exit 1
+}
+
 # Extract <zip> to a temp dir, compute per-file SHA256 checksums relative to the
 # .app root inside, print them to stdout, then clean up.
 # Returns 1 if the zip is unreadable (e.g. Synology dataless file).
@@ -50,17 +60,17 @@ checksums_from_zip() {
     local zip="$1" tmpcheck zipapp result
     tmpcheck=$(mktemp -d)
     if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
-        rm -rf "$tmpcheck"
+        rm_retry "$tmpcheck"
         return 1
     fi
     if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-        rm -rf "$tmpcheck"
+        rm_retry "$tmpcheck"
         return 1
     fi
     rm -f "$tmpcheck/archive.zip"
     zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
     result=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
-    rm -rf "$tmpcheck"
+    rm_retry "$tmpcheck"
     printf '%s' "$result"
 }
 
@@ -125,12 +135,12 @@ if [[ "$verify_mode" != "none" ]]; then
         # Full extraction and verification
         tmpcheck=$(mktemp -d)
         if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
-            rm -rf "$tmpcheck"
+            rm_retry "$tmpcheck"
             echo "  SKIPPED ⚠️: not readable (possibly not synced locally)"
             continue
         fi
         if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-            rm -rf "$tmpcheck"
+            rm_retry "$tmpcheck"
             echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
             continue
         fi
@@ -138,7 +148,7 @@ if [[ "$verify_mode" != "none" ]]; then
         zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
         app_size=$(du -sh "$zipapp" | cut -f1)
         actual=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
-        rm -rf "$tmpcheck"
+        rm_retry "$tmpcheck"
         echo "  app: $app_size"
         echo "  EXTRACTED: done"
 
@@ -221,7 +231,7 @@ for app in "${_apps[@]}"; do
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
                         cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-                        rm -rf "$tmpdir"
+                        rm_retry "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         echo "$live_checksums" > "$dest/$checksumname.tmp"
                         mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -234,7 +244,7 @@ for app in "${_apps[@]}"; do
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
                         cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
-                        rm -rf "$tmpdir"
+                        rm_retry "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         echo "$live_checksums" > "$dest/$newcheck.tmp"
                         mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -249,11 +259,11 @@ for app in "${_apps[@]}"; do
             tmpcheck=$(mktemp -d)
             if ! cp "$dest/$zipname" "$tmpcheck/archive.zip" 2>/dev/null; then
                 echo "  SKIPPED ⚠️: zip not readable; possibly not synced locally"
-                rm -rf "$tmpcheck"
+                rm_retry "$tmpcheck"
                 continue
             fi
             if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-                rm -rf "$tmpcheck"
+                rm_retry "$tmpcheck"
                 echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
                 continue
             fi
@@ -264,14 +274,14 @@ for app in "${_apps[@]}"; do
             echo "  app: $(du -sh "$app" | cut -f1)"
             echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
-                rm -rf "$tmpcheck"
+                rm_retry "$tmpcheck"
                 echo "$zip_checksums" > "$dest/$checksumname.tmp"
                 mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                 echo "  CHECKSUM: written"
                 echo "  VERIFIED ✅: zip checksum matches current app"
             else
                 zip_size_unc=$(du -sh "$zipapp" | cut -f1)
-                rm -rf "$tmpcheck"
+                rm_retry "$tmpcheck"
                 echo "  zip (uncompressed): $zip_size_unc"
                 echo "  MISMATCH ❌: zip checksum does not match current app"
                 printf "  [o]verwrite zip / [b]oth / [s]kip: "
@@ -283,7 +293,7 @@ for app in "${_apps[@]}"; do
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
                         cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-                        rm -rf "$tmpdir"
+                        rm_retry "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         echo "$live_checksums" > "$dest/$checksumname.tmp"
                         mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -298,7 +308,7 @@ for app in "${_apps[@]}"; do
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
                         cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
-                        rm -rf "$tmpdir"
+                        rm_retry "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         echo "$live_checksums" > "$dest/$newcheck.tmp"
                         mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -319,7 +329,7 @@ for app in "${_apps[@]}"; do
     tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
     cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
     (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-    rm -rf "$tmpdir"
+    rm_retry "$tmpdir"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
     echo "  ZIP+HASH: created"
     echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
