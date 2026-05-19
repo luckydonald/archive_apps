@@ -117,6 +117,8 @@ if [[ "$verify_mode" != "none" ]]; then
             fi
         fi
 
+        zip_size=$(du -sh "$zip" | cut -f1)
+        echo "  zip: $zip_size"
         # Full extraction and verification
         tmpcheck=$(mktemp -d)
         if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
@@ -130,11 +132,8 @@ if [[ "$verify_mode" != "none" ]]; then
         app_size=$(du -sh "$zipapp" | cut -f1)
         actual=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
         rm -rf "$tmpcheck"
-        zip_size=$(du -sh "$zip" | cut -f1)
-
-        echo "  EXTRACTED: done"
-        echo "  zip: $zip_size"
         echo "  app: $app_size"
+        echo "  EXTRACTED: done"
 
         if [[ -f "$checksumfile" ]]; then
             if [[ "$(cat "$checksumfile")" == "$actual" ]]; then
