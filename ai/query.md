@@ -99,3 +99,5 @@ obviously it's always either VERIFIED or FAILED etc.
 
 ❯ when verifying checksums with the `--verify-zips` command, write a `_checksum_index_.txt`, where the checked zip and checksum files are added as checksums, too. That way we can create `--verify-changed` and `--verify-new`. For new, it will process all of those where app-zip and app-hash are not present in the root checksum file. For changed it calcualtes the hashes for the data dir, and all mismatches are checked again as well as the missing ones.
 
+❯ I didn't see a `_checksum_index_.txt` be created? Only a `.tmp` one, but that seem to be deleted with `ctrl-c`...
+
