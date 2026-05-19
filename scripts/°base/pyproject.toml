@@ -1,0 +1,12 @@
+[project]
+name = "ai-scripts"
+version = "0.0.1"
+description = "Local environment for scripts/°base/ helpers and tests."
+requires-python = ">=3.11"
+dependencies = [
+    "prompt_toolkit>=3.0.52,<4",
+    "pyte>=0.8.1,<0.9",
+]
+
+[tool.uv]
+package = false

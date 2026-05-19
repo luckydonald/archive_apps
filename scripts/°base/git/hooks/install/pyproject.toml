@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "pre-commit>=4.5.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "product-dl-hooks"
+version = "0.0.1"
+description = "Pre-commit hook installer for product-dl"
+dependencies = ["pre-commit"]

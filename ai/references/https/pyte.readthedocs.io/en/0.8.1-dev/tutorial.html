@@ -1,0 +1,1582 @@
+<html class=" js flexbox canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths"
+      lang="en" data-readthedocs-tool="sphinx" data-readthedocs-tool-theme="readthedocs" style=""><!--<![endif]-->
+<head>
+    <meta charset="utf-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Tutorial — pyte 0.8.1-dev documentation</title>
+
+
+    <style type="text/css">:root, :host {
+        --fa-font-solid: normal 900 1em/1 "Font Awesome 7 Free";
+        --fa-font-regular: normal 400 1em/1 "Font Awesome 7 Free";
+        --fa-font-light: normal 300 1em/1 "Font Awesome 7 Pro";
+        --fa-font-thin: normal 100 1em/1 "Font Awesome 7 Pro";
+        --fa-font-duotone: normal 900 1em/1 "Font Awesome 7 Duotone";
+        --fa-font-duotone-regular: normal 400 1em/1 "Font Awesome 7 Duotone";
+        --fa-font-duotone-light: normal 300 1em/1 "Font Awesome 7 Duotone";
+        --fa-font-duotone-thin: normal 100 1em/1 "Font Awesome 7 Duotone";
+        --fa-font-brands: normal 400 1em/1 "Font Awesome 7 Brands";
+        --fa-font-sharp-solid: normal 900 1em/1 "Font Awesome 7 Sharp";
+        --fa-font-sharp-regular: normal 400 1em/1 "Font Awesome 7 Sharp";
+        --fa-font-sharp-light: normal 300 1em/1 "Font Awesome 7 Sharp";
+        --fa-font-sharp-thin: normal 100 1em/1 "Font Awesome 7 Sharp";
+        --fa-font-sharp-duotone-solid: normal 900 1em/1 "Font Awesome 7 Sharp Duotone";
+        --fa-font-sharp-duotone-regular: normal 400 1em/1 "Font Awesome 7 Sharp Duotone";
+        --fa-font-sharp-duotone-light: normal 300 1em/1 "Font Awesome 7 Sharp Duotone";
+        --fa-font-sharp-duotone-thin: normal 100 1em/1 "Font Awesome 7 Sharp Duotone";
+        --fa-font-slab-regular: normal 400 1em/1 "Font Awesome 7 Slab";
+        --fa-font-slab-press-regular: normal 400 1em/1 "Font Awesome 7 Slab Press";
+        --fa-font-whiteboard-semibold: normal 600 1em/1 "Font Awesome 7 Whiteboard";
+        --fa-font-thumbprint-light: normal 300 1em/1 "Font Awesome 7 Thumbprint";
+        --fa-font-notdog-solid: normal 900 1em/1 "Font Awesome 7 Notdog";
+        --fa-font-notdog-duo-solid: normal 900 1em/1 "Font Awesome 7 Notdog Duo";
+        --fa-font-etch-solid: normal 900 1em/1 "Font Awesome 7 Etch";
+        --fa-font-jelly-regular: normal 400 1em/1 "Font Awesome 7 Jelly";
+        --fa-font-jelly-fill-regular: normal 400 1em/1 "Font Awesome 7 Jelly Fill";
+        --fa-font-jelly-duo-regular: normal 400 1em/1 "Font Awesome 7 Jelly Duo";
+        --fa-font-chisel-regular: normal 400 1em/1 "Font Awesome 7 Chisel";
+        --fa-font-utility-semibold: normal 600 1em/1 "Font Awesome 7 Utility";
+        --fa-font-utility-duo-semibold: normal 600 1em/1 "Font Awesome 7 Utility Duo";
+        --fa-font-utility-fill-semibold: normal 600 1em/1 "Font Awesome 7 Utility Fill";
+    }
+
+    .svg-inline--fa {
+        box-sizing: content-box;
+        display: var(--fa-display, inline-block);
+        height: 1em;
+        overflow: visible;
+        vertical-align: -0.125em;
+        width: var(--fa-width, 1.25em);
+    }
+
+    .svg-inline--fa.fa-2xs {
+        vertical-align: 0.1em;
+    }
+
+    .svg-inline--fa.fa-xs {
+        vertical-align: 0em;
+    }
+
+    .svg-inline--fa.fa-sm {
+        vertical-align: -0.0714285714em;
+    }
+
+    .svg-inline--fa.fa-lg {
+        vertical-align: -0.2em;
+    }
+
+    .svg-inline--fa.fa-xl {
+        vertical-align: -0.25em;
+    }
+
+    .svg-inline--fa.fa-2xl {
+        vertical-align: -0.3125em;
+    }
+
+    .svg-inline--fa.fa-pull-left,
+    .svg-inline--fa .fa-pull-start {
+        float: inline-start;
+        margin-inline-end: var(--fa-pull-margin, 0.3em);
+    }
+
+    .svg-inline--fa.fa-pull-right,
+    .svg-inline--fa .fa-pull-end {
+        float: inline-end;
+        margin-inline-start: var(--fa-pull-margin, 0.3em);
+    }
+
+    .svg-inline--fa.fa-li {
+        width: var(--fa-li-width, 2em);
+        inset-inline-start: calc(-1 * var(--fa-li-width, 2em));
+        inset-block-start: 0.25em; /* syncing vertical alignment with Web Font rendering */
+    }
+
+    .fa-layers-counter, .fa-layers-text {
+        display: inline-block;
+        position: absolute;
+        text-align: center;
+    }
+
+    .fa-layers {
+        display: inline-block;
+        height: 1em;
+        position: relative;
+        text-align: center;
+        vertical-align: -0.125em;
+        width: var(--fa-width, 1.25em);
+    }
+
+    .fa-layers .svg-inline--fa {
+        inset: 0;
+        margin: auto;
+        position: absolute;
+        transform-origin: center center;
+    }
+
+    .fa-layers-text {
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        transform-origin: center center;
+    }
+
+    .fa-layers-counter {
+        background-color: var(--fa-counter-background-color, #ff253a);
+        border-radius: var(--fa-counter-border-radius, 1em);
+        box-sizing: border-box;
+        color: var(--fa-inverse, #fff);
+        line-height: var(--fa-counter-line-height, 1);
+        max-width: var(--fa-counter-max-width, 5em);
+        min-width: var(--fa-counter-min-width, 1.5em);
+        overflow: hidden;
+        padding: var(--fa-counter-padding, 0.25em 0.5em);
+        right: var(--fa-right, 0);
+        text-overflow: ellipsis;
+        top: var(--fa-top, 0);
+        transform: scale(var(--fa-counter-scale, 0.25));
+        transform-origin: top right;
+    }
+
+    .fa-layers-bottom-right {
+        bottom: var(--fa-bottom, 0);
+        right: var(--fa-right, 0);
+        top: auto;
+        transform: scale(var(--fa-layers-scale, 0.25));
+        transform-origin: bottom right;
+    }
+
+    .fa-layers-bottom-left {
+        bottom: var(--fa-bottom, 0);
+        left: var(--fa-left, 0);
+        right: auto;
+        top: auto;
+        transform: scale(var(--fa-layers-scale, 0.25));
+        transform-origin: bottom left;
+    }
+
+    .fa-layers-top-right {
+        top: var(--fa-top, 0);
+        right: var(--fa-right, 0);
+        transform: scale(var(--fa-layers-scale, 0.25));
+        transform-origin: top right;
+    }
+
+    .fa-layers-top-left {
+        left: var(--fa-left, 0);
+        right: auto;
+        top: var(--fa-top, 0);
+        transform: scale(var(--fa-layers-scale, 0.25));
+        transform-origin: top left;
+    }
+
+    .fa-1x {
+        font-size: 1em;
+    }
+
+    .fa-2x {
+        font-size: 2em;
+    }
+
+    .fa-3x {
+        font-size: 3em;
+    }
+
+    .fa-4x {
+        font-size: 4em;
+    }
+
+    .fa-5x {
+        font-size: 5em;
+    }
+
+    .fa-6x {
+        font-size: 6em;
+    }
+
+    .fa-7x {
+        font-size: 7em;
+    }
+
+    .fa-8x {
+        font-size: 8em;
+    }
+
+    .fa-9x {
+        font-size: 9em;
+    }
+
+    .fa-10x {
+        font-size: 10em;
+    }
+
+    .fa-2xs {
+        font-size: calc(10 / 16 * 1em); /* converts a 10px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 10 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 10 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-xs {
+        font-size: calc(12 / 16 * 1em); /* converts a 12px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 12 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 12 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-sm {
+        font-size: calc(14 / 16 * 1em); /* converts a 14px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 14 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 14 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-lg {
+        font-size: calc(20 / 16 * 1em); /* converts a 20px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 20 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 20 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-xl {
+        font-size: calc(24 / 16 * 1em); /* converts a 24px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 24 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 24 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-2xl {
+        font-size: calc(32 / 16 * 1em); /* converts a 32px size into an em-based value that's relative to the scale's 16px base */
+        line-height: calc(1 / 32 * 1em); /* sets the line-height of the icon back to that of it's parent */
+        vertical-align: calc((6 / 32 - 0.375) * 1em); /* vertically centers the icon taking into account the surrounding text's descender */
+    }
+
+    .fa-width-auto {
+        --fa-width: auto;
+    }
+
+    .fa-fw,
+    .fa-width-fixed {
+        --fa-width: 1.25em;
+    }
+
+    .fa-ul {
+        list-style-type: none;
+        margin-inline-start: var(--fa-li-margin, 2.5em);
+        padding-inline-start: 0;
+    }
+
+    .fa-ul > li {
+        position: relative;
+    }
+
+    .fa-li {
+        inset-inline-start: calc(-1 * var(--fa-li-width, 2em));
+        position: absolute;
+        text-align: center;
+        width: var(--fa-li-width, 2em);
+        line-height: inherit;
+    }
+
+    /* Heads Up: Bordered Icons will not be supported in the future!
+      - This feature will be deprecated in the next major release of Font Awesome (v8)!
+      - You may continue to use it in this version *v7), but it will not be supported in Font Awesome v8.
+    */
+    /* Notes:
+    * --@{v.$css-prefix}-border-width = 1/16 by default (to render as ~1px based on a 16px default font-size)
+    * --@{v.$css-prefix}-border-padding =
+      ** 3/16 for vertical padding (to give ~2px of vertical whitespace around an icon considering it's vertical alignment)
+      ** 4/16 for horizontal padding (to give ~4px of horizontal whitespace around an icon)
+    */
+    .fa-border {
+        border-color: var(--fa-border-color, #eee);
+        border-radius: var(--fa-border-radius, 0.1em);
+        border-style: var(--fa-border-style, solid);
+        border-width: var(--fa-border-width, 0.0625em);
+        box-sizing: var(--fa-border-box-sizing, content-box);
+        padding: var(--fa-border-padding, 0.1875em 0.25em);
+    }
+
+    .fa-pull-left,
+    .fa-pull-start {
+        float: inline-start;
+        margin-inline-end: var(--fa-pull-margin, 0.3em);
+    }
+
+    .fa-pull-right,
+    .fa-pull-end {
+        float: inline-end;
+        margin-inline-start: var(--fa-pull-margin, 0.3em);
+    }
+
+    .fa-beat {
+        animation-name: fa-beat;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, ease-in-out);
+    }
+
+    .fa-bounce {
+        animation-name: fa-bounce;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.28, 0.84, 0.42, 1));
+    }
+
+    .fa-fade {
+        animation-name: fa-fade;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+    }
+
+    .fa-beat-fade {
+        animation-name: fa-beat-fade;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, cubic-bezier(0.4, 0, 0.6, 1));
+    }
+
+    .fa-flip {
+        animation-name: fa-flip;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, ease-in-out);
+    }
+
+    .fa-shake {
+        animation-name: fa-shake;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, linear);
+    }
+
+    .fa-spin {
+        animation-name: fa-spin;
+        animation-delay: var(--fa-animation-delay, 0s);
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 2s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, linear);
+    }
+
+    .fa-spin-reverse {
+        --fa-animation-direction: reverse;
+    }
+
+    .fa-pulse,
+    .fa-spin-pulse {
+        animation-name: fa-spin;
+        animation-direction: var(--fa-animation-direction, normal);
+        animation-duration: var(--fa-animation-duration, 1s);
+        animation-iteration-count: var(--fa-animation-iteration-count, infinite);
+        animation-timing-function: var(--fa-animation-timing, steps(8));
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fa-beat,
+        .fa-bounce,
+        .fa-fade,
+        .fa-beat-fade,
+        .fa-flip,
+        .fa-pulse,
+        .fa-shake,
+        .fa-spin,
+        .fa-spin-pulse {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
+
+    @keyframes fa-beat {
+        0%, 90% {
+            transform: scale(1);
+        }
+        45% {
+            transform: scale(var(--fa-beat-scale, 1.25));
+        }
+    }
+
+    @keyframes fa-bounce {
+        0% {
+            transform: scale(1, 1) translateY(0);
+        }
+        10% {
+            transform: scale(var(--fa-bounce-start-scale-x, 1.1), var(--fa-bounce-start-scale-y, 0.9)) translateY(0);
+        }
+        30% {
+            transform: scale(var(--fa-bounce-jump-scale-x, 0.9), var(--fa-bounce-jump-scale-y, 1.1)) translateY(var(--fa-bounce-height, -0.5em));
+        }
+        50% {
+            transform: scale(var(--fa-bounce-land-scale-x, 1.05), var(--fa-bounce-land-scale-y, 0.95)) translateY(0);
+        }
+        57% {
+            transform: scale(1, 1) translateY(var(--fa-bounce-rebound, -0.125em));
+        }
+        64% {
+            transform: scale(1, 1) translateY(0);
+        }
+        100% {
+            transform: scale(1, 1) translateY(0);
+        }
+    }
+
+    @keyframes fa-fade {
+        50% {
+            opacity: var(--fa-fade-opacity, 0.4);
+        }
+    }
+
+    @keyframes fa-beat-fade {
+        0%, 100% {
+            opacity: var(--fa-beat-fade-opacity, 0.4);
+            transform: scale(1);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(var(--fa-beat-fade-scale, 1.125));
+        }
+    }
+
+    @keyframes fa-flip {
+        50% {
+            transform: rotate3d(var(--fa-flip-x, 0), var(--fa-flip-y, 1), var(--fa-flip-z, 0), var(--fa-flip-angle, -180deg));
+        }
+    }
+
+    @keyframes fa-shake {
+        0% {
+            transform: rotate(-15deg);
+        }
+        4% {
+            transform: rotate(15deg);
+        }
+        8%, 24% {
+            transform: rotate(-18deg);
+        }
+        12%, 28% {
+            transform: rotate(18deg);
+        }
+        16% {
+            transform: rotate(-22deg);
+        }
+        20% {
+            transform: rotate(22deg);
+        }
+        32% {
+            transform: rotate(-12deg);
+        }
+        36% {
+            transform: rotate(12deg);
+        }
+        40%, 100% {
+            transform: rotate(0deg);
+        }
+    }
+
+    @keyframes fa-spin {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .fa-rotate-90 {
+        transform: rotate(90deg);
+    }
+
+    .fa-rotate-180 {
+        transform: rotate(180deg);
+    }
+
+    .fa-rotate-270 {
+        transform: rotate(270deg);
+    }
+
+    .fa-flip-horizontal {
+        transform: scale(-1, 1);
+    }
+
+    .fa-flip-vertical {
+        transform: scale(1, -1);
+    }
+
+    .fa-flip-both,
+    .fa-flip-horizontal.fa-flip-vertical {
+        transform: scale(-1, -1);
+    }
+
+    .fa-rotate-by {
+        transform: rotate(var(--fa-rotate-angle, 0));
+    }
+
+    .svg-inline--fa .fa-primary {
+        fill: var(--fa-primary-color, currentColor);
+        opacity: var(--fa-primary-opacity, 1);
+    }
+
+    .svg-inline--fa .fa-secondary {
+        fill: var(--fa-secondary-color, currentColor);
+        opacity: var(--fa-secondary-opacity, 0.4);
+    }
+
+    .svg-inline--fa.fa-swap-opacity .fa-primary {
+        opacity: var(--fa-secondary-opacity, 0.4);
+    }
+
+    .svg-inline--fa.fa-swap-opacity .fa-secondary {
+        opacity: var(--fa-primary-opacity, 1);
+    }
+
+    .svg-inline--fa mask .fa-primary,
+    .svg-inline--fa mask .fa-secondary {
+        fill: black;
+    }
+
+    .svg-inline--fa.fa-inverse {
+        fill: var(--fa-inverse, #fff);
+    }
+
+    .fa-stack {
+        display: inline-block;
+        height: 2em;
+        line-height: 2em;
+        position: relative;
+        vertical-align: middle;
+        width: 2.5em;
+    }
+
+    .fa-inverse {
+        color: var(--fa-inverse, #fff);
+    }
+
+    .svg-inline--fa.fa-stack-1x {
+        --fa-width: 1.25em;
+        height: 1em;
+        width: var(--fa-width);
+    }
+
+    .svg-inline--fa.fa-stack-2x {
+        --fa-width: 2.5em;
+        height: 2em;
+        width: var(--fa-width);
+    }
+
+    .fa-stack-1x,
+    .fa-stack-2x {
+        inset: 0;
+        margin: auto;
+        position: absolute;
+        z-index: var(--fa-stack-z-index, auto);
+    }</style>
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css">
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css">
+    <link rel="index" title="Index" href="genindex.html">
+    <link rel="search" title="Search" href="search.html">
+    <link rel="next" title="API reference" href="api.html">
+    <link rel="prev" title="What is pyte?" href="index.html">
+
+
+    <script src="_static/js/modernizr.min.js"></script>
+    <style inject-id="58C6A98F-17C7-49C2-AC52-66367445C0FA">button.btn[data-openuri*="/4/"],
+    #target.pk-page-ready > #sales-banner {
+        display: none !important;
+    }
+
+    div[style^="height:    250px; width:    300px;"],
+    div[style^="width:    160px; height:    600px; margin: 0px auto; min-width: 160px; min-height: 600px;"],
+    div[style^="width:    300px; height:    250px;"],
+    html[class^="img_"][amp4ads=""][i-amphtml-layout=""][i-amphtml-no-boilerplate=""][amp-version="2502032353000"],
+    html[class^="img_"][amp4ads=""][i-amphtml-layout=""][i-amphtml-no-boilerplate=""][amp-version="2507172035000"],
+    html[class^="img_"][amp4ads=""][i-amphtml-layout=""][i-amphtml-no-boilerplate=""][amp-version="2509031727000"],
+    ins[style$="height:    90px; width:    728px;"],
+    div[id^="img_"][style^="margin:0;padding:0;display:block;position:fixed;left:0;"],
+    div[id^="img_"][data-google-query-id],
+    [href*="/afu.php"],
+    a[href^="https://syndication.exdynsrv.com/splash.php"],
+    [href^="https://www.onclickperformance.com/"],
+    [data-lnguri*="vipbox"],
+    [href*="passtechusa.com"],
+    [href^="https://t.mobtyb.com/"],
+    a[href^="http://www.poweredbyliquidfire.mobi/"],
+    [href^="https://go.smljmp.com/"],
+    [href^="https://popcash.net/"],
+    [href^="https://adult.xyz/"],
+    [href^="//look.utndln.com/offer"],
+    [href^="https://track.wg-aff.com/click"],
+    [href^="https://pl.allsports4free.club/"],
+    [href^="https://pl.allsports4u.club/"],
+    [href="//xxxrevpushclcdu.com/app.webp"],
+    [href^="//producebreed.com/"],
+    [href*="uselnk.com/"],
+    [href^="http://referrer.website/"],
+    [href^="https://klsdee.com/"],
+    a[href*="/go.php?a_aid="],
+    [src^="//dombnrs.com/"],
+    div[style="top: 0px; left: 0px; width: 1287px; height: 500px; position: fixed; z-index: 2147483647;"],
+    div[style="position: fixed; inset: 0px; z-index: 2147483647; pointer-events: auto;"],
+    [href^="https://fireads.online/"],
+    [href^="//mellowads.com/"],
+    [href^="//cadsecs.com/"],
+    [href^="https://wap4dollar.com/ad/nonadult/serve.php"],
+    [href^="https://go.rdrjmp.com/"],
+    [href^="https://www.safestcontentgate.com/"],
+    div[class$="player-promo-col"],
+    [href^="https://exi8ef83z9.com/"],
+    [href^="//taghaugh.com/"],
+    a[href*=".click/?z="][href*="&n"],
+    [href^="https://join.enjoyx.com/track/"],
+    [href="https://clickaine.com"],
+    a[onclick="openAuc();"],
+    [href="https://t.me/Russia_Vs_Ukraine_War3"],
+    div[style="position: fixed; display: block; width: 100%; height: 100%; inset: 0px; background-color: rgba(0, 0, 0, 0); z-index: 300000;"],
+    div[style^="position:fixed;inset:0px;z-index:2147483647;background:black;opacity:0.01"],
+    div[style^="position: fixed; inset: 0px; z-index: 2147483647; background: black; opacity: 0.01"],
+    a[href^="https://go.awdeliverynet.com/"],
+    a[href^="https://track.cam4tracking.com/"],
+    [data-uri^="https://s3.amazonaws.com"],
+    [data-lnguri^="https://s3.amazonaws.com"],
+    img[width="728"][height="90"],
+    AD-SLOT,
+    DFP-AD,
+    [class^="adDisplay-module"],
+    [class^="amp-ad-"],
+    [data-ad-cls],
+    [data-ad-name],
+    [data-asg-ins],
+    [data-block-type="ad"],
+    [data-cl-spot-id],
+    [data-css-class="dfp-inarticle"],
+    [data-d-ad-id],
+    [data-desktop-ad-id],
+    [data-dynamic-ads],
+    [data-ez-name],
+    [data-freestar-ad][id],
+    [data-id^="div-gpt-ad"],
+    [data-identity="adhesive-ad"],
+    [data-m-ad-id],
+    [data-mobile-ad-id],
+    [data-rc-widget],
+    [data-revive-zoneid],
+    [data-role="tile-ads-module"],
+    [data-template-type="nativead"],
+    [data-testid="adBanner-wrapper"],
+    [data-testid="ad_testID"],
+    [data-testid="prism-ad-wrapper"],
+    [data-testid^="section-AdRowBillboard"],
+    [data-type="ad-vertical"],
+    [data-wpas-zoneid],
+    [href$="/sexdating.php"],
+    [href="//sexcams.plus/"],
+    [href^="http://clicks.totemcash.com/"],
+    [href^="https://a.acebet.com/api/click?"],
+    [href^="https://aads.com/campaigns/"],
+    [href^="https://ad.admitad.com/"],
+    [href^="https://ad1.adfarm1.adition.com/"],
+    [href^="https://awbbjmp.com/"],
+    [href^="https://charmingdatings.life/"],
+    [href^="https://glersakr.com/"],
+    [href^="https://go.xlrdr.com"],
+    [href^="https://groorsoa.net/"],
+    [href^="https://ilovemyfreedoms.com/landing-"],
+    [href^="https://istlnkcl.com/"],
+    [href^="https://join.girlsoutwest.com/"],
+    [href^="https://join.playboyplus.com/track/"],
+    [href^="https://join3.bannedsextapes.com"],
+    [href^="https://rapidgator.net/article/premium/ref/"],
+    [href^="https://rpwmct.com/"],
+    [href^="https://track.aftrk1.com/"],
+    [href^="https://url.totaladblock.com/"],
+    [href^="https://wct.link/click?"],
+    [href^="https://wsup.ai/"],
+    [href^="https://www.cloudways.com/en/?id"],
+    [href^="https://www.profitablegatecpm.com/"],
+    [href^="https://www.restoro.com/"],
+    [href^="https://www.targetingpartner.com/"],
+    [href^="https://zone.gotrackier.com/"],
+    [id^="ad-wrap-"],
+    [id^="ad_sky"],
+    [id^="ad_slider"],
+    [id^="section-ad-banner"],
+    [name^="google_ads_iframe"],
+    a-ad,
+    a[href*=".adsrv.eacdn.com/"],
+    a[href*=".engine.adglare.net/"],
+    a[href*=".foxqck.com/"],
+    a[href*=".g2afse.com/"],
+    a[href*="//jjgirls.com/sex/Chaturbate"],
+    a[href*="/jump/next.php?r="],
+    a[href^=" https://www.friendlyduck.com/AF_"],
+    a[href^="//go.eabids.com/"],
+    a[href^="//hoodingluster.com/"],
+    a[href^="//s.zlinkd.com/"],
+    a[href^="//startgaming.net/tienda/" i],
+    a[href^="http://adultfriendfinder.com/go/"],
+    a[href^="http://bongacams.com/track?"],
+    a[href^="http://cam4com.go2cloud.org/aff_c?"],
+    a[href^="http://com-1.pro/"],
+    a[href^="http://join.brokestraightboys.com/track/"],
+    a[href^="http://partners.etoro.com/"],
+    a[href^="http://revolvemockerycopper.com/"],
+    a[href^="http://sarcasmadvisor.com/"],
+    a[href^="http://sneakyadministration.com/"],
+    a[href^="http://stickingrepute.com/"],
+    a[href^="http://trk.globwo.online/"],
+    a[href^="http://www.adultempire.com/unlimited/promo?"][href*="&partner_id="],
+    a[href^="http://www.friendlyduck.com/AF_"],
+    a[href^="http://www.h4trck.com/"],
+    a[href^="http://www.iyalc.com/"],
+    a[href^="https://123-stream.org/"],
+    a[href^="https://1betandgonow.com/"],
+    a[href^="https://1winpb.com/"],
+    a[href^="https://6-partner.com/"],
+    a[href^="https://Click.ggpickaff.com/"],
+    a[href^="https://a-ads.com/"],
+    a[href^="https://a.adtng.com/"],
+    a[href^="https://a.bestcontentfood.top/"],
+    a[href^="https://a.bestcontentoperation.top/"],
+    a[href^="https://a.bestcontentweb.top/"],
+    a[href^="https://a.candyai.love/"],
+    a[href^="https://a.medfoodhome.com/"],
+    a[href^="https://a.medfoodsafety.com/"],
+    a[href^="https://a2.adform.net/"],
+    a[href^="https://ab.advertiserurl.com/aff/"],
+    a[href^="https://activate-game.com/"],
+    a[href^="https://ad.doubleclick.net/"],
+    a[href^="https://adclick.g.doubleclick.net/"],
+    a[href^="https://ads.betfair.com/redirect.aspx?"],
+    a[href^="https://ads.leovegas.com/"],
+    a[href^="https://ads.planetwin365affiliate.com/"],
+    a[href^="https://adultfriendfinder.com/go/"],
+    a[href^="https://aj1070.online/"],
+    a[href^="https://ak.psaltauw.net/"],
+    a[href^="https://ausoafab.net/"],
+    a[href^="https://aweptjmp.com/"],
+    a[href^="https://awptjmp.com/"],
+    a[href^="https://banners.livepartners.com/"],
+    a[href^="https://bc.game/"],
+    a[href^="https://believessway.com/"],
+    a[href^="https://best-experience-cool.com/"],
+    a[href^="https://black77854.com/"],
+    a[href^="https://bngprm.com/"],
+    a[href^="https://bngpt.com/"],
+    a[href^="https://bodelen.com/"],
+    a[href^="https://bongacams10.com/track?"],
+    a[href^="https://bongacams2.com/track?"],
+    a[href^="https://cam4com.go2cloud.org/"],
+    a[href^="https://camfapr.com/landing/click/"],
+    a[href^="https://chaturbate.com/in/?"],
+    a[href^="https://claring-loccelkin.com/"],
+    a[href^="https://click.Ggpickaff.com/"],
+    a[href^="https://click.candyoffers.com/"],
+    a[href^="https://click.dtiserv2.com/"],
+    a[href^="https://click.hoolig.app/"],
+    a[href^="https://clickadilla.com/"],
+    a[href^="https://clickins.slixa.com/"],
+    a[href^="https://clicks.pipaffiliates.com/"],
+    a[href^="https://clixtrac.com/"],
+    a[href^="https://combodef.com/"],
+    a[href^="https://ctjdwm.com/"],
+    a[href^="https://ctosrd.com/"],
+    a[href^="https://ctrdwm.com/"],
+    a[href^="https://datewhisper.life/"],
+    a[href^="https://dl-protect.net/"],
+    a[href^="https://engine.phn.doublepimp.com/"],
+    a[href^="https://explore-site.com/"],
+    a[href^="https://fc.lc/ref/"],
+    a[href^="https://financeads.net/tc.php?"],
+    a[href^="https://gamingadlt.com/?offer="],
+    a[href^="https://get-link.xyz/"],
+    a[href^="https://getmatchedlocally.com/"],
+    a[href^="https://gml-grp.com/"],
+    a[href^="https://go.admjmp.com"],
+    a[href^="https://go.bbrdbr.com"],
+    a[href^="https://go.bushheel.com/"],
+    a[href^="https://go.cmtaffiliates.com/"],
+    a[href^="https://go.dmzjmp.com"],
+    a[href^="https://go.goaserv.com/"],
+    a[href^="https://go.grinsbest.com/"],
+    a[href^="https://go.hpyjmp.com"],
+    a[href^="https://go.hpyrdr.com/"],
+    a[href^="https://go.markets.com/visit/?bta="],
+    a[href^="https://go.mnaspm.com/"],
+    a[href^="https://go.rmhfrtnd.com"],
+    a[href^="https://go.rmishe.com/"],
+    a[href^="https://go.skinstrip.net"][href*="?campaignId="],
+    a[href^="https://go.strpjmp.com/"],
+    a[href^="https://go.tmrjmp.com"],
+    a[href^="https://go.trackitalltheway.com/"],
+    a[href^="https://go.xlirdr.com"],
+    a[href^="https://go.xlivrdr.com"],
+    a[href^="https://go.xlviiirdr.com"],
+    a[href^="https://go.xlviirdr.com"],
+    a[href^="https://go.xlvirdr.com"],
+    a[href^="https://go.xtbaffiliates.com/"],
+    a[href^="https://go.xxxiijmp.com"],
+    a[href^="https://go.xxxijmp.com"],
+    a[href^="https://go.xxxjmp.com"],
+    a[href^="https://go.xxxvjmp.com/"],
+    a[href^="https://golinks.work/"],
+    a[href^="https://helmethomicidal.com/"],
+    a[href^="https://hot-growngames.life/"],
+    a[href^="https://identicaldrench.com/"],
+    a[href^="https://in.rabbtrk.com/"],
+    a[href^="https://iqbroker.com/"][href*="?aff="],
+    a[href^="https://ismlks.com/"],
+    a[href^="https://italarizege.xyz/"],
+    a[href^="https://jaxofuna.com/"],
+    a[href^="https://join.bannedsextapes.com/track/"],
+    a[href^="https://join.dreamsexworld.com/"],
+    a[href^="https://join.sexworld3d.com/track/"],
+    a[href^="https://join.virtuallust3d.com/"],
+    a[href^="https://join.virtualtaboo.com/track/"],
+    a[href^="https://juicyads.in/"],
+    a[href^="https://landing.brazzersnetwork.com/"],
+    a[href^="https://lead1.pl/"],
+    a[href^="https://lijavaxa.com/"],
+    a[href^="https://lnkxt.bannerator.com/"],
+    a[href^="https://loboclick.com/"],
+    a[href^="https://losingoldfry.com/"],
+    a[href^="https://mediaserver.entainpartners.com/renderBanner.do?"],
+    a[href^="https://mmwebhandler.aff-online.com/"],
+    a[href^="https://myclick-2.com/"],
+    a[href^="https://natour.naughtyamerica.com/track/"],
+    a[href^="https://ndt5.net/"],
+    a[href^="https://offhandpump.com/"],
+    a[href^="https://osfultrbriolenai.info/"],
+    a[href^="https://pb-front.com/"],
+    a[href^="https://pb-imc.com/"],
+    a[href^="https://pb-track.com/"],
+    a[href^="https://playnano.online/offerwalls/?ref="],
+    a[href^="https://porntubemate.com/"],
+    a[href^="https://postback1win.com/"],
+    a[href^="https://pubads.g.doubleclick.net/"],
+    a[href^="https://quotationfirearmrevision.com/"],
+    a[href^="https://random-affiliate.atimaze.com/"],
+    a[href^="https://rixofa.com/"],
+    a[href^="https://s.cant3am.com/"],
+    a[href^="https://s.eunow4u.com/"],
+    a[href^="https://s.gentlefieldpattern.com/"],
+    a[href^="https://s.ma3ion.com/"],
+    a[href^="https://s.zlink3.com/"],
+    a[href^="https://s.zlink7.com/"],
+    a[href^="https://s.zlinkd.com/"],
+    a[href^="https://s.zlinkn.com/"],
+    a[href^="https://s.zlinkr.com/"],
+    a[href^="https://s.zlinkt.com/"],
+    a[href^="https://serve.awmdelivery.com/"],
+    a[href^="https://service.bv-aff-trx.com/"],
+    a[href^="https://sexynearme.com/"],
+    a[href^="https://slkmis.com/"],
+    a[href^="https://snowdayonline.xyz/"],
+    a[href^="https://stardomcoit.com/"],
+    a[href^="https://static.fleshlight.com/images/banners/"],
+    a[href^="https://streamate.com/landing/click/"],
+    a[href^="https://svb-analytics.trackerrr.com/"],
+    a[href^="https://syndicate.contentsserved.com/"],
+    a[href^="https://syndication.dynsrvtbg.com/"],
+    a[href^="https://syndication.exoclick.com/"],
+    a[href^="https://t.acam.link/"],
+    a[href^="https://t.adating.link/"],
+    a[href^="https://t.ajrkm1.com/"],
+    a[href^="https://t.ajrkm3.com/"],
+    a[href^="https://t.ajump1.com/"],
+    a[href^="https://t.aslnk.link/"],
+    a[href^="https://tatrck.com/"],
+    a[href^="https://tm-offers.gamingadult.com/"],
+    a[href^="https://tour.mrskin.com/"],
+    a[href^="https://track.1234sd123.com/"],
+    a[href^="https://track.adform.net/"],
+    a[href^="https://track.afcpatrk.com/"],
+    a[href^="https://track.aftrk3.com/"],
+    a[href^="https://track.aftrk5.com/"],
+    a[href^="https://track.totalav.com/"],
+    a[href^="https://track.wg-aff.com"],
+    a[href^="https://tracker.loropartners.com/"],
+    a[href^="https://tracking.avapartner.com/"],
+    a[href^="https://traffdaq.com/"],
+    a[href^="https://trk.nfl-online-streams.club/"],
+    a[href^="https://trk.softonixs.xyz/"],
+    a[href^="https://twinrdsrv.com/"],
+    a[href^="https://twinrdsyte.com/"],
+    a[href^="https://upsups.click/"],
+    a[href^="https://voluum.prom-xcams.com/"],
+    a[href^="https://wittered-mainging.com/"],
+    a[href^="https://wmctjd.com/"],
+    a[href^="https://wolf-327b.com/"],
+    a[href^="https://www.adskeeper.com"],
+    a[href^="https://www.adultempire.com/"][href*="?partner_id="],
+    a[href^="https://www.adxsrve.com/"],
+    a[href^="https://www.bang.com/?aff="],
+    a[href^="https://www.bet365.com/"][href*="affiliate="],
+    a[href^="https://www.brazzersnetwork.com/landing/"],
+    a[href^="https://www.dating-finder.com/?ai_d="],
+    a[href^="https://www.dating-finder.com/signup/?ai_d="],
+    a[href^="https://www.dql2clk.com/"],
+    a[href^="https://www.effectiveratecpm.com/"],
+    a[href^="https://www.financeads.net/tc.php?"],
+    a[href^="https://www.friendlyduck.com/AF_"],
+    a[href^="https://www.geekbuying.com/dynamic-ads/"],
+    a[href^="https://www.highcpmrevenuenetwork.com/"],
+    a[href^="https://www.highperformancecpmgate.com/"],
+    a[href^="https://www.liquidfire.mobi/"],
+    a[href^="https://www.mrskin.com/account/"],
+    a[href^="https://www.mrskin.com/tour"],
+    a[href^="https://www.nutaku.net/signup/landing/"],
+    a[href^="https://www.onlineusershielder.com/"],
+    a[href^="https://www.toprevenuegate.com/"],
+    a[href^="https://www8.smartadserver.com/"],
+    a[href^="https://zirdough.net/"],
+    a[onclick^="window.location.replace('https://random-affiliate.atimaze.com/"],
+    a[style="width:100%;height:100%;z-index:10000000000000000;position:absolute;top:0;left:0;"],
+    ad-shield-ads,
+    ad-slot,
+    app-ad,
+    app-advertisement,
+    app-large-ad,
+    aside[id^="adrotate_widgets-"],
+    atf-ad-slot,
+    bottomadblock,
+    display-ad-component,
+    display-ads,
+    div[aria-label="Ads"],
+    div[class$="-adlabel"],
+    div[class^="Adstyled__AdWrapper-"],
+    div[data-ad-placeholder],
+    div[data-ad-region],
+    div[data-ad-targeting],
+    div[data-ad-wrapper],
+    div[data-adname],
+    div[data-adunit-path],
+    div[data-adunit],
+    div[data-adzone],
+    div[data-alias="300x250 Ad 1"],
+    div[data-alias="300x250 Ad 2"],
+    div[data-contentexchange-widget],
+    div[data-dfp-id],
+    div[data-id-advertdfpconf],
+    div[id^="ad-div-"],
+    div[id^="ad-position-"],
+    div[id^="ad_position_"],
+    div[id^="adngin-"],
+    div[id^="adrotate_widgets-"],
+    div[id^="adspot-"],
+    div[id^="apn_native_ad_slot_"],
+    div[id^="crt-"][style],
+    div[id^="dfp-ad-"],
+    div[id^="div-ads-"],
+    div[id^="ezoic-pub-ad-"],
+    div[id^="google_dfp_"],
+    div[id^="gpt_ad_"],
+    div[id^="lazyad-"],
+    div[id^="optidigital-adslot"],
+    div[id^="rc-widget-"],
+    div[id^="sticky_ad_"],
+    div[id^="vuukle-ad-"],
+    div[ow-ad-unit-wrapper],
+    gpt-ad,
+    guj-ad,
+    hl-adsense,
+    img[src^="https://images.purevpnaffiliates.com"],
+    img[src^="https://s-img.adskeeper.com/"],
+    ps-connatix-module,
+    span[data-ez-ph-id],
+    span[id^="ezoic-pub-ad-placeholder-"],
+    topadblock,
+    zeus-ad,
+    in-page-message[doskip],
+    div[id^="mrec-leaderboard-"],
+    broadstreet-zone-container,
+    a[href*="&maxads="],
+    a[href*=".cfm?domain="][href*="&fp="],
+    [class^="tile-picker__CitrusBannerContainer-sc-"],
+    citrus-ad-wrapper,
+    [class^="s2nPlayer"],
+    a[href^="https://fastestvpn.com/lifetime-special-deal?a_aid="],
+    a[href^="https://track.ultravpn.com/"],
+    a[href^="https://www.get-express-vpn.com/offer/"],
+    a[href^="https://www.goldenfrog.com/vyprvpn?offer_id="][href*="&aff_id="],
+    a[href^="https://www.purevpn.com/"][href*="&utm_source=aff-"],
+    div[id*="MarketGid"],
+    div[id*="ScriptRoot"],
+    [onclick*="content.ad/"],
+    AMP-AD,
+    amp-ad,
+    amp-ad-custom,
+    amp-connatix-player,
+    amp-fx-flying-carpet,
+    a[data-oburl^="https://paid.outbrain.com/network/redir?"],
+    a[data-redirect^="https://paid.outbrain.com/network/redir?"],
+    a[href^="https://paid.outbrain.com/network/redir?"],
+    a[onmousedown^="this.href='https://paid.outbrain.com/network/redir?"],
+    [data-taboola-options],
+    [data-testid="commercial-label-taboola"],
+    [data-testid^="taboola-"],
+    amp-embed[type="taboola"],
+    div[id^="taboola-stream-"],
+    div[id^="zergnet-widget"] {
+        display: none !important;
+    }
+
+    img[height="   250"][width="   300"],
+    img[height="   90"][width="   728"],
+    *:not(body) > a[href^="https://content-loader.com/"],
+    *:not(body) > a[href^="https://html-load.com/"],
+    *:not(body) > a[href^="https://07c225f3.online/"],
+    amp-img[height="   120"],
+    amp-img[width="   300"],
+    amp-img[width="   336"],
+    div[id^="img_"][style$="2147483647; justify-content: center;"],
+    div[id^="img_"][style$="display: block;"],
+    div[id^="img_"][style$="height: 90px;"],
+    div[id^="img_"][style$="max-height:100px;background-color:rgba(128, 128, 128, 0.4);"],
+    div[id^="img_"][style^="width: 100%;height: 90px;position: fixed;bottom: 0px;left: 0px;z-index:"],
+    [class^="div-gpt-ad"]:not([style^="width: 1px; height: 1px; position: absolute; left: -10000px; top: -"]),
+    div[id^="div-gpt-"]:not([style^="width: 1px; height: 1px; position: absolute; left: -10000px; top: -"]):not([style="pointer-events: none; height: 1px; width: 0px; opacity: 0; visibility: hidden; position: fixed; bottom: 0px;"]),
+    [id^="div-gpt-ad"]:not([style^="width: 1px; height: 1px; position: absolute; left: -10000px; top: -"]):not([style="pointer-events: none; height: 1px; width: 0px; opacity: 0; visibility: hidden; position: fixed; bottom: 0px;"]),
+    body > div[style$="z-index: 2147483647; top: 0px; left: 0px; position: fixed; display: block;"],
+    a[id][href="https://chpadblock.com/"][rel^="noopener noreferrer"],
+    a[id][href="https://hamrocsit.com"][rel^="noopener noreferrer"],
+    a[id][href="https://toolkitspro.com"][rel^="noopener noreferrer"],
+    div[id][style^="position: fixed; inset: 0px; z-index: 2147483647; background: black"][style*="opacity: 0.01"],
+    a[dontfo=""][style$="position: absolute; z-index: 2147483647;"],
+    .ad-unit:not(.adsbox, .text-ad, .textads):not([style^="width: 1px; height: 1px; position: absolute;"]),
+    [data-ad-module]:not([style$="left: -10000px !important; top: -1000px !important;"]):not(.adsbygoogle),
+    [data-ad-width]:not([style$="left: -10000px !important; top: -1000px !important;"]):not(.adsbygoogle),
+    [data-ad-manager-id]:not([style$="left: -10000px !important; top: -1000px !important;"]):not(.adsbygoogle),
+    div[style^="z-index: 999999; background-image: url(\"data:image/gif;base64,"][style$="position: absolute;"],
+    .ad-placeholder:not(#detect, #detect_ad_empire, #filter_ads_by_classname, .adsbox),
+    .ad-space:not(.adbox, .adsbox, .textads),
+    [href="https://chaturbate.jjgirls.com/"] > img,
+    [href="https://jdrucker.com/gold"] > img,
+    [href^="http://mypillow.com/"] > img,
+    [href^="http://www.mypillow.com/"] > img,
+    [href^="https://affiliate.fastcomet.com/"] > img,
+    [href^="https://antiagingbed.com/discount/"] > img,
+    [href^="https://ap.octopuspop.com/click/"] > img,
+    [href^="https://clicks.affstrack.com/"] > img,
+    [href^="https://mylead.global/stl/"] > img,
+    [href^="https://mypatriotsupply.com/"] > img,
+    [href^="https://mypillow.com/"] > img,
+    [href^="https://mystore.com/"] > img,
+    [href^="https://optimizedelite.com/"] > img,
+    [href^="https://shiftnetwork.infusionsoft.com/go/"] > img,
+    [href^="https://track.fiverr.com/visit/"] > img,
+    [href^="https://turtlebids.irauctions.com/"] img,
+    [href^="https://www.avantlink.com/click.php"] img,
+    [href^="https://www.brighteonstore.com/products/"] img,
+    [href^="https://www.herbanomic.com/"] > img,
+    [href^="https://www.hostg.xyz/"] > img,
+    [href^="https://www.mypillow.com/"] > img,
+    [href^="https://zstacklife.com/"] img,
+    a[href^="http://tc.tradetracker.net/"] > img,
+    a[href^="https://ad.zanox.com/ppc/"] > img,
+    a[href^="https://click.linksynergy.com/fs-bin/"] > img,
+    a[href^="https://go.etoro.com/"] > img,
+    a[href^="https://prf.hn/click/"][href*="/adref:"] > img,
+    a[href^="https://prf.hn/click/"][href*="/camref:"] > img,
+    a[href^="https://prf.hn/click/"][href*="/creativeref:"] > img,
+    a[href^="https://tc.tradetracker.net/"] > img,
+    a[href^="https://www.googleadservices.com/pagead/aclk?"] > img,
+    a[href^="https://www.infowarsstore.com/"] > img,
+    div[id^="st"][style^="z-index: 999999999;"],
+    iframe[scrolling="no"][sandbox*="allow-popups allow-modals"][style^="width: 100%; height: 100%; border: none;"],
+    a[href^="https://billing.purevpn.com/aff.php"] > img,
+    a[href^="https://get.surfshark.net/aff_c?"][href*="&aff_id="] > img,
+    a[href^="https://go.nordvpn.net/aff"] > img,
+    a[href^="https://torguard.net/aff.php"] > img,
+    a[href^="https://www.privateinternetaccess.com/"] > img {
+        display: none !important;
+    }</style>
+
+
+    <!-- RTD Extra Head -->
+
+    <!--
+    Always link to the latest version, as canonical.
+    http://docs.readthedocs.org/en/latest/canonical.html
+    -->
+    <link rel="canonical" href="https://pyte.readthedocs.io/en/latest/tutorial.html">
+
+    <link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css">
+
+    <script type="text/javascript" src="_static/readthedocs-data.js"></script>
+
+    <!-- Add page-specific data, which must exist in the page js, not global -->
+    <script type="text/javascript">
+        READTHEDOCS_DATA['page'] = 'tutorial'
+        READTHEDOCS_DATA['source_suffix'] = '.rst'
+    </script>
+
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/readthedocs-analytics.js"></script>
+
+    <!-- end RTD <extrahead> -->
+    <script async="" type="text/javascript" src="/_/static/javascript/readthedocs-addons.js"></script>
+    <meta name="readthedocs-project-slug" content="pyte">
+    <meta name="readthedocs-version-slug" content="latest">
+    <meta name="readthedocs-resolver-filename" content="/tutorial.html">
+    <meta name="readthedocs-http-status" content="200">
+    <style inject-id="0">@-webkit-keyframes bitwardenfill {
+                             0% {
+                                 -webkit-transform: scale(1, 1);
+                             }
+
+                             50% {
+                                 -webkit-transform: scale(1.2, 1.2);
+                             }
+
+                             100% {
+                                 -webkit-transform: scale(1, 1);
+                             }
+                         }
+
+    @-moz-keyframes bitwardenfill {
+        0% {
+            transform: scale(1, 1);
+        }
+
+        50% {
+            transform: scale(1.2, 1.2);
+        }
+
+        100% {
+            transform: scale(1, 1);
+        }
+    }
+
+    span[data-bwautofill].com-bitwarden-browser-animated-fill {
+        display: inline-block;
+    }
+
+    .com-bitwarden-browser-animated-fill {
+        animation: bitwardenfill 200ms ease-in-out 0ms 1;
+        -webkit-animation: bitwardenfill 200ms ease-in-out 0ms 1;
+    }
+
+    @media (prefers-reduced-motion) {
+        .com-bitwarden-browser-animated-fill {
+            animation: none;
+            -webkit-animation: none;
+        }
+    }
+
+    </style>
+    <style inject-id="0">.ConsentOMatic-CMP-Hider {
+        opacity: 0 !important
+    }
+
+    .ConsentOMatic-Progress-Dialog-Modal {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(170deg, rgb(0, 51, 153), transparent);
+        z-index: 2147483646;
+        transition: opacity 1s ease-in-out;
+        animation: consentomatic-modalAnimation .5s ease-in-out
+    }
+
+    .ConsentOMatic-Progress-Dialog-Modal.ConsentOMatic-Progress-Complete {
+        opacity: 0
+    }
+
+    @keyframes consentomatic-progressAnimation {
+        from {
+            background-position: 90% 50%
+        }
+        to {
+            background-position: 0% 50%
+        }
+    }
+
+    @keyframes consentomatic-modalAnimation {
+        from {
+            opacity: 0
+        }
+    }
+
+    .ConsentOMatic-Progres-Preview {
+        position: absolute;
+        width: min(25vw, 20rem);
+        height: 12rem;
+        background: rgba(0, 48, 154, .2);
+        box-sizing: border-box;
+        bottom: 4rem;
+        right: 0;
+        border-left: 1px solid rgba(0, 0, 139, .0705882353);
+        border-top: 1px solid rgba(0, 0, 139, .0705882353);
+        border-right: 1px solid rgba(0, 0, 139, .0705882353);
+        transition: transform .3s ease-out;
+        transform-origin: center bottom;
+        transform: scaleY(0)
+    }
+
+    .ConsentOMatic-PIP .ConsentOMatic-Progres-Preview {
+        transform: scaleY(1)
+    }
+
+    .ConsentOMatic-Progress-Complete .ConsentOMatic-Progres-Preview {
+        transform: scaleY(0)
+    }
+
+    .ConsentOMatic-Progress-Dialog {
+        position: absolute;
+        right: 0;
+        bottom: 1rem;
+        width: min(25vw, 20rem);
+        height: 3rem;
+        font-size: 1rem;
+        border: 0;
+        box-shadow: 0 0 3rem rgba(47, 51, 70, .637);
+        background: #00309a;
+        background: linear-gradient(to right, rgb(0, 0, 0) 0%, rgb(0, 48, 154) 40%, rgb(0, 22, 91) 60%);
+        background-size: 400% 400%;
+        display: flex;
+        box-sizing: border-box;
+        flex-direction: row;
+        justify-content: left;
+        align-items: center;
+        overflow: hidden;
+        padding: .5rem;
+        opacity: 0;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+        animation-name: consentomatic-progressAnimation;
+        animation-duration: 5s;
+        animation-delay: -1s;
+        animation-direction: alternate;
+        animation-iteration-count: infinite;
+        animation-fill-mode: both;
+        transition: opacity 1s ease-in-out;
+        z-index: 2
+    }
+
+    .ConsentOMatic-Progress-Dialog:before {
+        content: "";
+        width: 2rem;
+        height: 2rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' xml:space='preserve' viewBox='0 0 1522 1522'%3E%3Ccircle cx='760.8' cy='760.8' r='727.3' fill='%2311378F'/%3E%3Cpath fill='%23FDD70A' d='m761 74 28 58 64 9-46 45 11 63-57-30-57 30 11-63-46-45 63-9zM1053 153l29 58 63 9-46 45 11 63-57-30-57 30 11-63-46-45 64-9zM1274 362l28 58 64 9-46 45 11 63-57-30-57 30 10-63-46-45 64-9zM1360 673l28 58 64 9-46 45 11 63-57-29-57 29 11-63-46-45 63-9zM1262 958l28 58 64 9-46 45 11 64-57-30-57 30 11-64-46-45 63-9zM1065 1167l28 58 64 9-46 45 11 63-57-30-57 30 11-63-46-45 63-9zM761 1272l28 58 64 9-46 45 11 63-57-29-57 29 11-63-46-45 63-9zM457 1167l28 58 64 9-46 45 11 63-57-30-57 30 11-63-46-45 63-9zM260 958l28 58 64 9-46 45 11 64-57-30-57 30 11-64-46-45 63-9zM162 673l28 58 64 9-46 45 11 63-57-29-57 29 11-63-46-45 63-9zM248 362l29 58 63 9-46 45 11 63-57-30-57 30 11-63-46-45 64-9zM468 153l29 58 63 9-46 45 11 63-57-30-57 30 11-63-46-45 64-9z'/%3E%3Cpath fill='%23FFF' d='M915 730v-79a153 153 0 0 0-307 0v79h-29v282h364V730h-28zm-51 32-40 61c-22 35-40 73-56 111l-16 45c-2 5-6 7-10 8-7 1-14 0-21-2-4-1-7-4-9-8l-27-52c-8-14-16-26-26-37-4-5-4-9 1-11 9-5 19-5 28-2l7 5a241 241 0 0 1 33 49h1l6-12c21-51 47-98 78-144l11-15c3-5 7-7 12-8 8-1 15-1 23 2l3 1c4 2 5 5 2 9zm6-111v79H653v-79a109 109 0 1 1 217 0z'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center center;
+        margin-right: .5rem
+    }
+
+    .ConsentOMatic-Progress-Dialog:after {
+        content: "";
+        background: green;
+        height: .2rem;
+        position: absolute;
+        top: 0;
+        left: 0;
+        transition: width .25s ease-out;
+        width: calc(var(--progress) * 100%)
+    }
+
+    .ConsentOMatic-Progress-Dialog::backdrop {
+        transition: background 1s ease-in-out;
+        background: rgba(0, 0, 0, 0)
+    }
+
+    .ConsentOMatic-Progress-Dialog p {
+        color: #fff;
+        margin: 0;
+        font-size: .8rem;
+        font-family: sans-serif;
+        font-weight: 300
+    }
+
+    .ConsentOMatic-Progress-Started .ConsentOMatic-Progress-Dialog {
+        opacity: 1
+    }
+
+    .ConsentOMatic-Progress-Started .ConsentOMatic-Progress-Dialog::backdrop {
+        background: rgba(0, 20, 100, .25)
+    }
+
+    .ConsentOMatic-Progress-Complete .ConsentOMatic-Progress-Dialog {
+        opacity: 0
+    }
+
+    .ConsentOMatic-Progress-Complete .ConsentOMatic-Progress-Dialog::backdrop {
+        background: rgba(0, 0, 0, 0) !important
+    }
+    </style>
+    <script id="ethicaladsjs" type="text/javascript" async="true"
+            src="https://media.ethicalads.io/media/client/ethicalads.min.js"></script>
+</head>
+
+<body class="wy-body-for-nav" style="">
+
+
+<div class="wy-grid-for-nav">
+
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+        <div class="wy-side-scroll">
+            <div class="wy-side-nav-search">
+
+
+                <a href="index.html" class="icon icon-home"> pyte
+
+
+                </a>
+
+
+                <div class="version">
+                    latest
+                </div>
+
+
+                <div role="search">
+                    <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+                        <input type="text" name="q" placeholder="Search docs">
+                        <input type="hidden" name="check_keywords" value="yes">
+                        <input type="hidden" name="area" value="default">
+                    </form>
+                </div>
+
+
+            </div>
+
+            <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+
+
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="#">Tutorial</a></li>
+                    <li class="toctree-l1"><a class="reference internal" href="api.html">API reference</a></li>
+                    <li class="toctree-l1"><a class="reference internal" href="changelog.html">pyte Changelog</a></li>
+                </ul>
+
+
+            </div>
+            <div class="raised ethical-rtd ethical-dark-theme adaptive-css" data-ea-type="readthedocs-sidebar"
+                 data-ea-manual="true" data-ea-publisher="readthedocs"
+                 data-ea-keywords="python|readthedocs-project-978|readthedocs-project-pyte|terminal-emulator|vt102|vte"
+                 data-ea-campaign-types="community|house|paid"
+                 id="readthedocs-ea-readthedocs-sidebar-nostyle-sphinx"></div>
+        </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+
+        <nav class="wy-nav-top" aria-label="top navigation">
+
+            <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+            <a href="index.html">pyte</a>
+
+        </nav>
+
+
+        <div class="wy-nav-content">
+
+            <div class="rst-content">
+
+
+                <div role="navigation" aria-label="breadcrumbs navigation">
+
+                    <ul class="wy-breadcrumbs">
+
+                        <li><a href="index.html">Docs</a> »</li>
+
+                        <li>Tutorial</li>
+
+
+                        <li class="wy-breadcrumbs-aside">
+
+
+                            <a href="https://github.com/selectel/pyte/blob/master/docs/tutorial.rst"
+                               class="fa fa-github"> Edit on GitHub</a>
+
+
+                        </li>
+
+                    </ul>
+
+
+                    <hr>
+                </div>
+                <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+                    <div itemprop="articleBody">
+
+                        <div class="section" id="tutorial">
+                            <span id="id1"></span>
+                            <h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a>
+                            </h1>
+                            <p>There are two important classes in <code class="docutils literal notranslate"><span
+                                    class="pre">pyte</span></code>: <a class="reference internal"
+                                                                       href="api.html#pyte.screens.Screen"
+                                                                       title="pyte.screens.Screen"><code
+                                    class="xref py py-class docutils literal notranslate"><span
+                                    class="pre">Screen</span></code></a>
+                                and <code class="xref py py-class docutils literal notranslate"><span
+                                        class="pre">Stream</span></code>. The <cite>Screen</cite> is the terminal screen
+                                emulator. It maintains an in-memory buffer of text and text-attributes
+                                to display. The <cite>Stream</cite> is the stream processor. It processes the input
+                                and dispatches events. Events are things like <code
+                                        class="docutils literal notranslate"><span class="pre">LINEFEED</span></code>,
+                                <code class="docutils literal notranslate"><span class="pre">DRAW</span> <span
+                                        class="pre">"a"</span></code>,
+                                or <code class="docutils literal notranslate"><span class="pre">CURSOR_POSITION</span>
+                                    <span class="pre">10</span> <span class="pre">10</span></code>. See the <a
+                                        class="reference internal" href="api.html#api"><span class="std std-ref">API reference</span></a>
+                                for more
+                                details.</p>
+                            <p>In general, if you just want to know what’s being displayed on screen you
+                                can do something like the following:</p>
+                            <div class="highlight-default notranslate">
+                                <div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span
+                                        class="kn">from</span> <span class="nn">__future__</span> <span
+                                        class="k">import</span> <span class="n">unicode_literals</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">pyte</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">screen</span> <span class="o">=</span> <span
+                                            class="n">pyte</span><span class="o">.</span><span
+                                            class="n">Screen</span><span class="p">(</span><span
+                                            class="mi">80</span><span class="p">,</span> <span class="mi">24</span><span
+                                            class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stream</span> <span class="o">=</span> <span
+                                            class="n">pyte</span><span class="o">.</span><span
+                                            class="n">Stream</span><span class="p">(</span><span class="n">screen</span><span
+                                            class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stream</span><span class="o">.</span><span
+                                            class="n">feed</span><span class="p">(</span><span class="sa">b</span><span
+                                            class="s2">"Hello World!"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">screen</span><span class="o">.</span><span class="n">display</span>
+<span class="go">    ['Hello World!                                                                    ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ',</span>
+<span class="go">     '                                                                                ']</span>
+</pre>
+                                </div>
+                            </div>
+                            <p><strong>Note</strong>: <code class="docutils literal notranslate"><span class="pre">Screen</span></code>
+                                has no idea what is the source of bytes fed into <code
+                                        class="docutils literal notranslate"><span class="pre">Stream</span></code>,
+                                so, obviously, it <strong>can’t read</strong> or <strong>change</strong> environment
+                                variables, which implies
+                                that:</p>
+                            <ul class="simple">
+                                <li>it doesn’t adjust <cite>LINES</cite> and <cite>COLUMNS</cite> on <code
+                                        class="docutils literal notranslate"><span class="pre">"resize"</span></code>
+                                    event;
+                                </li>
+                                <li>it doesn’t use locale settings (<cite>LC_*</cite> and <cite>LANG</cite>);</li>
+                                <li>it doesn’t use <cite>TERM</cite> value and expects it to be <cite>“linux”</cite> and
+                                    only <cite>“linux”</cite>.
+                                </li>
+                            </ul>
+                            <p>And that’s it for Hello World! Head over to the <a class="reference external"
+                                                                                  href="https://github.com/selectel/pyte/tree/master/examples">examples</a>
+                                for more.</p>
+                        </div>
+
+
+                    </div>
+
+                </div>
+                <footer>
+
+                    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+
+                        <a href="api.html" class="btn btn-neutral float-right" title="API reference" accesskey="n"
+                           rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+
+
+                        <a href="index.html" class="btn btn-neutral" title="What is pyte?" accesskey="p"
+                           rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+
+                    </div>
+
+
+                    <hr>
+
+                    <div role="contentinfo">
+                        <p>
+                            © Copyright 2011-2012 Selectel, 2012-2017 pyte authors and contributors.
+
+                            <span class="commit">
+          Revision <code>a267d4ae</code>.
+        </span>
+
+
+                        </p>
+                    </div>
+                    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a
+                        href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a
+                        href="https://readthedocs.org">Read the Docs</a>.
+
+                </footer>
+
+            </div>
+        </div>
+
+    </section>
+
+</div>
+
+
+<script type="text/javascript">
+    var DOCUMENTATION_OPTIONS = {
+        URL_ROOT: './',
+        VERSION: '0.8.1-dev',
+        LANGUAGE: 'en',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE: true,
+        SOURCELINK_SUFFIX: '.txt'
+    };
+</script>
+<script type="text/javascript" src="https://media.readthedocs.org/javascript/jquery/jquery-2.0.3.min.js"></script>
+<script type="text/javascript"
+        src="https://media.readthedocs.org/javascript/jquery/jquery-migrate-1.2.1.min.js"></script>
+<script type="text/javascript" src="https://media.readthedocs.org/javascript/underscore.js"></script>
+<script type="text/javascript" src="https://media.readthedocs.org/javascript/doctools.js"></script>
+<script type="text/javascript" src="https://media.readthedocs.org/javascript/readthedocs-doc-embed.js"></script>
+
+
+<script type="text/javascript" src="_static/js/theme.js"></script>
+
+<script type="text/javascript">
+    jQuery(function () {
+        SphinxRtdTheme.Navigation.enable(true);
+    });
+</script>
+
+
+<readthedocs-flyout></readthedocs-flyout>
+<readthedocs-notification class="raised toast"></readthedocs-notification>
+<readthedocs-search class="raised floating"></readthedocs-search>
+<readthedocs-hotkeys></readthedocs-hotkeys>
+</body>
+</html>

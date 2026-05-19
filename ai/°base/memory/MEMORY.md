@@ -1,0 +1,1 @@
+- [lplp: never drop ai: auto-commits](feedback_lplp_never_drop_ai_autocommits.md) — fold every chained `ai:` auto-commit into the new code commit; never `git reset --hard` past them, even smoke-test ones.
