@@ -52,10 +52,15 @@ checksums_from_zip() {
 }
 
 if [[ "$verify_zips" == "true" ]]; then
-    while IFS= read -r zip; do
+    mapfile -t _zips < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
+    total=${#_zips[@]}
+    echo "Verifying $total zip(s)…"
+    i=0
+    for zip in "${_zips[@]}"; do
+        i=$(( i + 1 ))
         zipname=$(basename "$zip")
         checksumfile="${zip%.zip}.checksums.txt"
-        echo "VERIFY: $zipname"
+        echo "$i/$total VERIFY: $zipname"
         if [[ -f "$checksumfile" ]]; then
             if ! actual=$(checksums_from_zip "$zip"); then
                 echo "  CHECKSUM zip: SKIPPED (unreadable)"
@@ -75,10 +80,15 @@ if [[ "$verify_zips" == "true" ]]; then
             printf '%s\n' "$actual" > "${checksumfile}.tmp"
             mv "${checksumfile}.tmp" "$checksumfile"
         fi
-    done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
+    done
 fi
 
-find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; do
+mapfile -t _apps < <(find /Applications -maxdepth 2 -name "*.app" -type d)
+total=${#_apps[@]}
+echo "Checking $total app(s)…"
+i=0
+for app in "${_apps[@]}"; do
+    i=$(( i + 1 ))
     plist="$app/Contents/Info.plist"
     mobile=""
     if [[ ! -f "$plist" ]]; then
@@ -86,7 +96,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
         mobile="mobile@"
     fi
     if [[ ! -f "$plist" ]]; then
-        echo "SKIP (no Info.plist): $app"
+        echo "$i/$total SKIP (no Info.plist): $app"
         continue
     fi
 
@@ -98,7 +108,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
     zipname="${name}.app@${mobile}${version}.zip"
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
     if [[ -f "$dest/$zipname" ]]; then
-        echo "EXISTS: $zipname"
+        echo "$i/$total EXISTS: $zipname"
         if [[ -f "$dest/$checksumname" ]]; then
             echo "  CHECKSUM zip: found"
         else
@@ -163,7 +173,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
         continue
     fi
 
-    echo "ARCHIVING: $zipname"
+    echo "$i/$total ARCHIVING: $zipname"
     versioned="${name} ${version}.app"
     live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
     tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
