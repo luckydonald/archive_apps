@@ -15,3 +15,6 @@
 
 #### Previous user prompts:
 
+
+❯ @ai/errors/1.md
+

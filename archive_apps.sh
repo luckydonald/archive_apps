@@ -39,7 +39,11 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
         if [[ ! -f "$dest/$checksumname" ]]; then
             echo "  CHECKSUMMING from zip: $checksumname"
             tmpcheck=$(mktemp -d)
-            cp "$dest/$zipname" "$tmpcheck/archive.zip"
+            if ! cp "$dest/$zipname" "$tmpcheck/archive.zip" 2>/dev/null; then
+                echo "  SKIPPED (zip not readable; possibly not synced locally)"
+                rm -rf "$tmpcheck"
+                continue
+            fi
             ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"
             rm -f "$tmpcheck/archive.zip"
             zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
