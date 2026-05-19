@@ -34,3 +34,5 @@
 ❯ can we hook into that Option A, _right-click the file in Finder → "Make Available Offline" (Synology Drive's FinderSync extension adds this menu item)_ directly?
 I.e. **not** using applescript + UI scripting?
 
+❯ dockcument the issue and what we found detailed at ai/docs/*.md.
+
