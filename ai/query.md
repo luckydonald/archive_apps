@@ -59,3 +59,5 @@ when copying, that one can be used, and verifyied with the zip after writing, us
 
 ❯ preceed the two loops with information of how many items need to be checked, and have a xxx/yyy in those.
 
+❯  line 55: mapfile: command not found
+
