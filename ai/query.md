@@ -38,3 +38,5 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ it shall include the location and intricite details of key discoveries along the way, too.
 
+❯ Is the `EXISTS:` a checksum check? if so print that. Otherwise add that check.
+
