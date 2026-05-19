@@ -104,3 +104,5 @@ obviously it's always either VERIFIED or FAILED etc.
 ❯ It doesn't seem to `INDEXED`-skip all of the apps... (only the mobile ones from the sample size of 3?)
 For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already verified` or `CACHE-MISS 🔸: app` and/or `CACHE-MISS 🔸: zip`
 
+❯ Uh, now it stops after 4 without a printed error? (the first one after pre-existing matching hashes)
+
