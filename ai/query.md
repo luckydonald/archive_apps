@@ -110,3 +110,5 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ If you get `rm: /var/folders/jv/xthv_j4x7xx6rg_dgpyypqcr0000gn/T/tmp.MwCcfIfDGG: Directory not empty`, retry 5 times, 1s wait, then die
 
+❯ Oh, fun new feature idea: Mark the files in Finder with the color labels. Probably `xattr` command or something. Actually, ignore this for now, will come back to this later.
+
