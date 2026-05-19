@@ -114,3 +114,29 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ Another thought for another time, maybe-never: Freshly writing a zip file should write the checksums to the index too, so at least that would not be recomputed.
 
+❯ /plan 
+Check out @ai/errors/5.md , when I put the laptop to sleep, on the NAS connection.
+That's a bit of a problem, now the index is an empty file, and at least some version of `.tmp` still exists.
+1) guard writing 
+   - both of those files
+   - including a readback verification.
+   - If it fails, ask to 
+     - a)  retry (default selection)
+          - this is for attempting the last write again
+     - a') retry original (if you chose a different destination via _b)_, you can reset it and retry that one.
+     - b)  save somewhere else
+           - guarded as well, obviously, with same options
+     - c)  skip
+           - attempt one last time to write the file to tmp, and print the path if succeeded. Better than _not writing_.
+           - if that fails too, print the contents to the terminal. Better than _literal nothing_.
+           - contines operation as if it worked.
+     - d)  exit
+           - have the user confirm by typing 'sure' - if not, go back to the parent question.
+           - this will still do the tmp/cat like c), but then exit with a status code.
+2) Obviously don't remove the tmp file, if the write of the proper one failed (including _c)_).
+3) Add recovery code, which will restore a tmp one to the live one, if present
+   - ask for confirmation on each of the steps of that.
+   1) Found a temp file, wanna restore that?
+   2) actual file is empty, wanna merge?
+   3) Temporary file: X lines\nExisting file: Y lines\nMerge duplicates: D lines\nResulting files: T lines\nWanna continue?
+
