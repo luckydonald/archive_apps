@@ -61,3 +61,5 @@ when copying, that one can be used, and verifyied with the zip after writing, us
 
 ❯  line 55: mapfile: command not found
 
+❯ write it `VERIFY 001/123: file`, so that the verb comes first, archiving too.
+
