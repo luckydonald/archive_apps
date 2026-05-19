@@ -33,9 +33,18 @@ else
     cp_flags=(-R)
 fi
 
+_preserve_tmps=()
+
 cleanup() {
-    rm -f "$dest"/*.zip.tmp "$dest"/*.checksums.txt.tmp
-    # On interrupt, save whatever was accumulated so far rather than discarding it
+    rm -f "$dest"/*.zip.tmp
+    for _cf in "$dest"/*.checksums.txt.tmp; do
+        [[ -f "$_cf" ]] || continue
+        local _skip=0
+        for _pf in "${_preserve_tmps[@]+"${_preserve_tmps[@]}"}"; do
+            [[ "$_cf" == "$_pf" ]] && _skip=1 && break
+        done
+        [[ $_skip -eq 1 ]] || rm -f "$_cf"
+    done
     if [[ -f "$dest/_checksum_index_.txt.tmp" ]]; then
         sort -k2 "$dest/_checksum_index_.txt.tmp" > "$dest/_checksum_index_.txt" 2>/dev/null || true
         rm -f "$dest/_checksum_index_.txt.tmp"
@@ -51,6 +60,116 @@ rm_retry() {
     done
     echo "ERROR: failed to remove $dir after 5 attempts" >&2
     exit 1
+}
+
+_WFAIL_DST=""
+
+_write_fail_menu() {
+    local desc="$1" content_or_src="$2" orig_dst="$3" mode="$4"
+    local cur_dst="$orig_dst" has_alternate=0 choice confirm tmp_fallback
+    tmp_fallback="/tmp/$(basename "$orig_dst")"
+    while true; do
+        echo "  WRITE ERROR: $desc" >&2
+        echo "  [a] retry (default)" >&2
+        [[ $has_alternate -eq 1 ]] && echo " [a'] retry original path ($orig_dst)" >&2
+        echo "  [b] save somewhere else" >&2
+        echo "  [c] skip (try /tmp, else print)" >&2
+        echo "  [d] exit" >&2
+        printf "  Choice [a]: " >&2
+        read -r choice < /dev/tty
+        choice="${choice:-a}"
+        case "$choice" in
+            a)
+                _WFAIL_DST="$cur_dst"; return 0 ;;
+            "a'")
+                [[ $has_alternate -eq 1 ]] || continue
+                cur_dst="$orig_dst"; has_alternate=0
+                _WFAIL_DST="$cur_dst"; return 0 ;;
+            b)
+                printf "  New path: " >&2
+                read -r cur_dst < /dev/tty
+                has_alternate=1; _WFAIL_DST="$cur_dst"; return 0 ;;
+            c|d)
+                case "$mode" in
+                    append)
+                        if printf '%s\n' "$content_or_src" >> "$tmp_fallback" 2>/dev/null; then
+                            echo "  SAVED ⚠️: $tmp_fallback" >&2
+                        else
+                            printf '%s\n' "$content_or_src"
+                        fi ;;
+                    write)
+                        if printf '%s\n' "$content_or_src" > "$tmp_fallback" 2>/dev/null; then
+                            echo "  SAVED ⚠️: $tmp_fallback" >&2
+                        else
+                            printf '%s\n' "$content_or_src"
+                        fi ;;
+                    mv)
+                        if mv "$content_or_src" "$tmp_fallback" 2>/dev/null; then
+                            echo "  SAVED ⚠️: $tmp_fallback" >&2
+                        else
+                            cat "$content_or_src" 2>/dev/null || true
+                            _preserve_tmps+=("$content_or_src")
+                        fi ;;
+                esac
+                if [[ "$choice" == "d" ]]; then
+                    printf "  Type 'sure' to confirm exit: " >&2
+                    read -r confirm < /dev/tty
+                    [[ "$confirm" == "sure" ]] && exit 1
+                    continue
+                fi
+                return 1 ;;
+        esac
+    done
+}
+
+safe_append() {
+    local line="$1" file="$2" target last rc
+    _WFAIL_DST="$file"
+    while true; do
+        target="$_WFAIL_DST"
+        if printf '%s\n' "$line" >> "$target" 2>/dev/null; then
+            last=$(tail -1 "$target" 2>/dev/null)
+            [[ "$last" == "$line" ]] && return 0
+            echo "  WARN: readback mismatch (append $target)" >&2
+        fi
+        _write_fail_menu "append to $(basename "$file")" "$line" "$file" "append"
+        rc=$?; [[ $rc -eq 0 ]] || return $(( rc - 1 ))
+    done
+}
+
+safe_write() {
+    local content="$1" file="$2" target last_exp last_act rc
+    _WFAIL_DST="$file"
+    last_exp=$(printf '%s\n' "$content" | tail -1)
+    while true; do
+        target="$_WFAIL_DST"
+        if printf '%s\n' "$content" > "$target" 2>/dev/null; then
+            last_act=$(tail -1 "$target" 2>/dev/null)
+            [[ "$last_act" == "$last_exp" ]] && return 0
+            echo "  WARN: readback mismatch (write $target)" >&2
+        fi
+        _write_fail_menu "write $(basename "$file")" "$content" "$file" "write"
+        rc=$?; [[ $rc -eq 0 ]] || return $(( rc - 1 ))
+    done
+}
+
+safe_mv() {
+    local src="$1" dst="$2" target expected actual rc
+    expected=$(wc -l < "$src" 2>/dev/null | tr -d ' ')
+    _WFAIL_DST="$dst"
+    while true; do
+        target="$_WFAIL_DST"
+        if mv "$src" "$target" 2>/dev/null; then
+            actual=$(wc -l < "$target" 2>/dev/null | tr -d ' ')
+            if [[ -s "$target" && "$actual" -eq "$expected" ]]; then
+                return 0
+            fi
+            echo "  WARN: readback mismatch after mv to $target" >&2
+            return 0
+        fi
+        _write_fail_menu "write $(basename "$dst")" "$src" "$dst" "mv"
+        rc=$?; [[ $rc -eq 0 ]] || return $(( rc - 1 ))
+    done
 }
 
 # Extract <zip> to a temp dir, compute per-file SHA256 checksums relative to the
@@ -77,6 +196,46 @@ checksums_from_zip() {
 if [[ "$verify_mode" != "none" ]]; then
     index_file="$dest/_checksum_index_.txt"
     index_tmp="$dest/_checksum_index_.txt.tmp"
+
+    if [[ -f "$index_tmp" ]]; then
+        echo "RECOVERY: Found leftover temp file: $(basename "$index_tmp")"
+        printf "  Restore it? [Y/n]: "
+        read -r _rc_ans < /dev/tty
+        if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
+            _rc_live_lines=0
+            [[ -f "$index_file" ]] && _rc_live_lines=$(wc -l < "$index_file" | tr -d ' ')
+            printf "  Existing file: $_rc_live_lines lines. Merge? [Y/n]: "
+            read -r _rc_ans < /dev/tty
+            if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
+                _rc_tmp_lines=$(wc -l < "$index_tmp" | tr -d ' ')
+                if [[ $_rc_live_lines -gt 0 ]]; then
+                    _rc_merged=$(sort -u "$index_tmp" "$index_file" 2>/dev/null)
+                else
+                    _rc_merged=$(sort -u "$index_tmp" 2>/dev/null)
+                fi
+                if [[ -z "$_rc_merged" ]]; then
+                    _rc_merged_lines=0
+                else
+                    _rc_merged_lines=$(printf '%s\n' "$_rc_merged" | wc -l | tr -d ' ')
+                fi
+                _rc_dup_lines=$(( _rc_tmp_lines + _rc_live_lines - _rc_merged_lines ))
+                echo "  Temporary file: $_rc_tmp_lines lines"
+                echo "  Existing file:  $_rc_live_lines lines"
+                echo "  Merge duplicates: $_rc_dup_lines lines"
+                echo "  Resulting file: $_rc_merged_lines lines"
+                printf "  Continue? [Y/n]: "
+                read -r _rc_ans < /dev/tty
+                if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
+                    _rc_merged_tmp=$(mktemp "$dest/_checksum_index_.XXXXXX.tmp")
+                    printf '%s\n' "$_rc_merged" > "$_rc_merged_tmp"
+                    safe_mv "$_rc_merged_tmp" "$index_file"
+                    rm -f "$index_tmp"
+                    echo "  RECOVERY ✅: merged and written"
+                fi
+            fi
+        fi
+    fi
+
     : > "$index_tmp"
 
     _zips=(); while IFS= read -r _l; do _zips+=("$_l"); done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
@@ -104,8 +263,8 @@ if [[ "$verify_mode" != "none" ]]; then
             [[ -n "$cs_stored"  ]] && echo "  app: $cs_stored"  || echo "  CACHE-MISS 🔸: app"
             if [[ -n "$zip_stored" && -n "$cs_stored" ]]; then
                 echo "  INDEXED ✅: already verified"
-                echo "$zip_stored  $zipname"     >> "$index_tmp"
-                echo "$cs_stored  $checksumname" >> "$index_tmp"
+                safe_append "$zip_stored  $zipname"     "$index_tmp"
+                safe_append "$cs_stored  $checksumname" "$index_tmp"
                 continue
             fi
 
@@ -124,8 +283,8 @@ if [[ "$verify_mode" != "none" ]]; then
             if [[ -n "$current_zip_hash" && "$current_zip_hash" == "$zip_stored" && \
                   -n "$cs_current" && "$cs_current" == "$cs_stored" ]]; then
                 echo "  UNCHANGED ✅: hash matches index"
-                echo "$current_zip_hash  $zipname"  >> "$index_tmp"
-                echo "$cs_current  $checksumname"   >> "$index_tmp"
+                safe_append "$current_zip_hash  $zipname"  "$index_tmp"
+                safe_append "$cs_current  $checksumname"   "$index_tmp"
                 continue
             fi
         fi
@@ -160,22 +319,23 @@ if [[ "$verify_mode" != "none" ]]; then
             fi
         else
             echo "  CHECKSUM: missing, creating…"
-            printf '%s\n' "$actual" > "${checksumfile}.tmp"
-            mv "${checksumfile}.tmp" "$checksumfile"
+            safe_write "$actual" "${checksumfile}.tmp"
+            safe_mv "${checksumfile}.tmp" "$checksumfile"
             echo "  CHECKSUM: written"
         fi
 
         # Add/fix index entries for this zip and its checksums file
         [[ -z "$current_zip_hash" ]] && current_zip_hash=$(shasum -a 256 "$zip" | awk '{print $1}')
-        echo "$current_zip_hash  $zipname" >> "$index_tmp"
+        safe_append "$current_zip_hash  $zipname" "$index_tmp"
         if [[ -f "$checksumfile" ]]; then
             cs_hash=$(shasum -a 256 "$checksumfile" | awk '{print $1}')
-            echo "$cs_hash  $checksumname" >> "$index_tmp"
+            safe_append "$cs_hash  $checksumname" "$index_tmp"
         fi
     done
 
-    sort -k2 "$index_tmp" -o "$index_tmp"
-    mv "$index_tmp" "$index_file"
+    sort -k2 "$index_tmp" -o "$index_tmp" 2>/dev/null || \
+        echo "  WARN: sort of index failed; writing unsorted" >&2
+    safe_mv "$index_tmp" "$index_file"
     echo "INDEX: written → $(basename "$index_file")"
 fi
 
@@ -233,8 +393,8 @@ for app in "${_apps[@]}"; do
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
                         rm_retry "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
-                        echo "$live_checksums" > "$dest/$checksumname.tmp"
-                        mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+                        safe_write "$live_checksums" "$dest/$checksumname.tmp"
+                        safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                         ;;
                     b|B)
                         suffix=$(date +%Y%m%d_%H%M%S)
@@ -246,8 +406,8 @@ for app in "${_apps[@]}"; do
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
                         rm_retry "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
-                        echo "$live_checksums" > "$dest/$newcheck.tmp"
-                        mv "$dest/$newcheck.tmp" "$dest/$newcheck"
+                        safe_write "$live_checksums" "$dest/$newcheck.tmp"
+                        safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
                         ;;
                     *)
                         echo "  SKIPPED"
@@ -275,8 +435,8 @@ for app in "${_apps[@]}"; do
             echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
                 rm_retry "$tmpcheck"
-                echo "$zip_checksums" > "$dest/$checksumname.tmp"
-                mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+                safe_write "$zip_checksums" "$dest/$checksumname.tmp"
+                safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                 echo "  CHECKSUM: written"
                 echo "  VERIFIED ✅: zip checksum matches current app"
             else
@@ -295,12 +455,12 @@ for app in "${_apps[@]}"; do
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
                         rm_retry "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
-                        echo "$live_checksums" > "$dest/$checksumname.tmp"
-                        mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+                        safe_write "$live_checksums" "$dest/$checksumname.tmp"
+                        safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                         ;;
                     b|B)
-                        echo "$zip_checksums" > "$dest/$checksumname.tmp"
-                        mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+                        safe_write "$zip_checksums" "$dest/$checksumname.tmp"
+                        safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                         suffix=$(date +%Y%m%d_%H%M%S)
                         newzip="${name}.app@${mobile}${version}~${suffix}.zip"
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
@@ -310,8 +470,8 @@ for app in "${_apps[@]}"; do
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
                         rm_retry "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
-                        echo "$live_checksums" > "$dest/$newcheck.tmp"
-                        mv "$dest/$newcheck.tmp" "$dest/$newcheck"
+                        safe_write "$live_checksums" "$dest/$newcheck.tmp"
+                        safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
                         ;;
                     *)
                         echo "  SKIPPED"
@@ -333,8 +493,8 @@ for app in "${_apps[@]}"; do
     mv "$dest/$zipname.tmp" "$dest/$zipname"
     echo "  ZIP+HASH: created"
     echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
-    echo "$live_checksums" > "$dest/$checksumname.tmp"
-    mv "$dest/$checksumname.tmp" "$dest/$checksumname"
+    safe_write "$live_checksums" "$dest/$checksumname.tmp"
+    safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
     echo "  CHECKSUM: written"
 
     if zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
