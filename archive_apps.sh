@@ -52,7 +52,7 @@ checksums_from_zip() {
 }
 
 if [[ "$verify_zips" == "true" ]]; then
-    mapfile -t _zips < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
+    _zips=(); while IFS= read -r _l; do _zips+=("$_l"); done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
     total=${#_zips[@]}
     echo "Verifying $total zip(s)…"
     i=0
@@ -83,7 +83,7 @@ if [[ "$verify_zips" == "true" ]]; then
     done
 fi
 
-mapfile -t _apps < <(find /Applications -maxdepth 2 -name "*.app" -type d)
+_apps=(); while IFS= read -r _l; do _apps+=("$_l"); done < <(find /Applications -maxdepth 2 -name "*.app" -type d)
 total=${#_apps[@]}
 echo "Checking $total app(s)…"
 i=0
