@@ -57,3 +57,5 @@ If there's no checksum, it should do `CHECKSUM zip: missing, creating…`, and d
 Then should be compared with that one of the actial Apllication, and then see if it's needs to be overwritten (asked) (i think it does).
 when copying, that one can be used, and verifyied with the zip after writing, using the same logic as the initial loop.
 
+❯ preceed the two loops with information of how many items need to be checked, and have a xxx/yyy in those.
+
