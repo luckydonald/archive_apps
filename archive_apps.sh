@@ -82,8 +82,8 @@ if [[ "$verify_mode" != "none" ]]; then
         # Look up stored hashes using grep -F so spaces in filenames are handled correctly
         current_zip_hash="" zip_stored="" cs_stored=""
         if [[ "$verify_mode" != "zips" && -f "$index_file" ]]; then
-            zip_stored=$(grep -F "  $zipname" "$index_file" 2>/dev/null | awk '{print $1}')
-            cs_stored=$(grep -F "  $checksumname" "$index_file" 2>/dev/null | awk '{print $1}')
+            zip_stored=$(grep -F "  $zipname"      "$index_file" 2>/dev/null | awk '{print $1}') || true
+            cs_stored=$(grep -F "  $checksumname"  "$index_file" 2>/dev/null | awk '{print $1}') || true
         fi
 
         if [[ "$verify_mode" == "new" ]]; then
