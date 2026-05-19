@@ -63,3 +63,37 @@ when copying, that one can be used, and verifyied with the zip after writing, us
 
 ❯ write it `VERIFY 001/123: file`, so that the verb comes first, archiving too.
 
+❯ After the zip, show file size (human readable):
+
+```txt
+  Checking 153 app(s)…
+  ARCHIVING 001/153: /Applications/Foo.app
+    app: 12.4 MB
+    SKIPPING ⚠️: no Info.plist
+  ARCHIVING 002/153: Bar.app@2.1.zip
+    ARCHIVE: found
+    CHECKSUM: found
+    app: 1.2 GB
+    zip: 802 MB
+    VERIFIED ✅: archived checksum matches current app
+    MISSMATCH ❌: archived checksum does not match current app
+  ARCHIVING 003/153: Baz.app@3.2.zip
+    ARCHIVE: missing
+    ZIP+HASH: created
+    app: 998 KB
+    zip: 332 KB
+    CHECKSUM: written
+    CREATED ✅: archived checksum matches app
+    MISSMATCH ❌: archived checksum does not match original app
+
+  And for --verify-zips with e.g. 42 zips:
+  Verifying 42 zip(s)…
+  VERIFY 01/42: Bar.app@2.1.zip
+    EXTRACTED: done
+    zip: 3.3 KB
+    app:  45 KB
+    VERIFIED ✅: checksum still matches expanded app.
+    FAILED ❌: checksum differs
+```
+obviously it's always either VERIFIED or FAILED etc.
+
