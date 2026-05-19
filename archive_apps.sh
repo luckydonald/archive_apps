@@ -69,7 +69,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
                         rm -f "$dest/$zipname"
                         versioned="${name} ${version}.app"
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp -cR "$app" "$tmpdir/$versioned"
+                        cp -R "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
                         rm -rf "$tmpdir"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
@@ -84,7 +84,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
                         versioned="${name} ${version}.app"
                         tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp -cR "$app" "$tmpdir/$versioned"
+                        cp -R "$app" "$tmpdir/$versioned"
                         (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
                         rm -rf "$tmpdir"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
@@ -103,7 +103,7 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
     echo "ARCHIVING: $zipname"
     versioned="${name} ${version}.app"
     tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-    cp -cR "$app" "$tmpdir/$versioned"
+    cp -R "$app" "$tmpdir/$versioned"
     (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
     rm -rf "$tmpdir"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
