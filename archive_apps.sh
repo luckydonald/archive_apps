@@ -33,7 +33,14 @@ else
     cp_flags=(-R)
 fi
 
-cleanup() { rm -f "$dest"/*.zip.tmp "$dest"/*.txt.tmp; }
+cleanup() {
+    rm -f "$dest"/*.zip.tmp "$dest"/*.checksums.txt.tmp
+    # On interrupt, save whatever was accumulated so far rather than discarding it
+    if [[ -f "$dest/_checksum_index_.txt.tmp" ]]; then
+        sort -k2 "$dest/_checksum_index_.txt.tmp" > "$dest/_checksum_index_.txt" 2>/dev/null || true
+        rm -f "$dest/_checksum_index_.txt.tmp"
+    fi
+}
 trap cleanup EXIT
 
 # Extract <zip> to a temp dir, compute per-file SHA256 checksums relative to the
