@@ -140,3 +140,5 @@ That's a bit of a problem, now the index is an empty file, and at least some ver
    2) actual file is empty, wanna merge?
    3) Temporary file: X lines\nExisting file: Y lines\nMerge duplicates: D lines\nResulting files: T lines\nWanna continue?
 
+❯ Do not fill my disk pls.
+
