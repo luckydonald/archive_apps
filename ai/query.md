@@ -40,3 +40,5 @@ I.e. **not** using applescript + UI scripting?
 
 ❯ Is the `EXISTS:` a checksum check? if so print that. Otherwise add that check.
 
+❯ do a separate `CHECKSUM: match` or something.
+
