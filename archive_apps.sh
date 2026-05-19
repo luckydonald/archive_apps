@@ -38,11 +38,13 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
         echo "EXISTS: $zipname"
         if [[ ! -f "$dest/$checksumname" ]]; then
             echo "  CHECKSUMMING from zip: $checksumname"
-            tmpcheck=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-            ditto -x -k "$dest/$zipname" "$tmpcheck"
+            tmpcheck=$(mktemp -d)
+            cp "$dest/$zipname" "$tmpcheck/archive.zip"
+            ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"
+            rm -f "$tmpcheck/archive.zip"
             zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
-            zip_checksums=$(find "$zipapp" -type f | sort | xargs shasum -a 256 | sed "s|$zipapp/||")
-            live_checksums=$(find "$app" -type f | sort | xargs shasum -a 256 | sed "s|$app/||")
+            zip_checksums=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
+            live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
 
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
                 rm -rf "$tmpcheck"
@@ -99,6 +101,6 @@ find /Applications -maxdepth 2 -name "*.app" -type d | while IFS= read -r app; d
     rm -rf "$tmpdir"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
 
-    find "$app" -type f | sort | xargs shasum -a 256 | sed "s|$app/||" > "$dest/$checksumname.tmp"
+    find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||" > "$dest/$checksumname.tmp"
     mv "$dest/$checksumname.tmp" "$dest/$checksumname"
 done
