@@ -108,3 +108,5 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ @ai/errors/4.md
 
+❯ If you get `rm: /var/folders/jv/xthv_j4x7xx6rg_dgpyypqcr0000gn/T/tmp.MwCcfIfDGG: Directory not empty`, retry 5 times, 1s wait, then die
+
