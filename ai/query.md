@@ -29,3 +29,5 @@
 
 ❯ @ai/errors/1.md
 
+❯ can we trigger and check the sync?
+
