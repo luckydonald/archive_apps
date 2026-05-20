@@ -177,9 +177,39 @@ safe_mv() {
     done
 }
 
+# Called when checksums_from_zip exits 2 (some entries unreadable).
+# Prompts the user; returns 0 to continue processing the zip, 1 to skip it.
+_unreadable_prompt() {
+    local zip="$1" n="$2"
+    echo "  PARTIAL ⚠️: $n entries could not be read"
+    printf "  [a]ignore / [b]stop / [c]rename to .bak.zip / [d]delete: "
+    _tty_read _up_ans "a"
+    case "${_up_ans:-a}" in
+        b|B) exit 1 ;;
+        c|C)
+            local _bak="${zip%.zip}.$(date +%Y-%m-%d_%H-%M-%S).bak.zip"
+            if mv "$zip" "$_bak"; then
+                echo "  RENAMED: $(basename "$_bak")"
+                return 1
+            fi
+            echo "  RENAME FAILED; ignoring"
+            return 0
+            ;;
+        d|D)
+            if rm -f "$zip"; then
+                echo "  DELETED: $(basename "$zip")"
+                return 1
+            fi
+            echo "  DELETE FAILED; ignoring"
+            return 0
+            ;;
+        *) echo "  IGNORING: proceeding with partial checksums" ;;
+    esac
+}
+
 # Stream zip entries through Python's zipfile module, hash each in RAM, print
 # per-file SHA256 checksums relative to the .app root.  Writes zero bytes.
-# Returns 1 if the zip is unreadable, has no .app bundle, or is corrupt.
+# Returns 0 OK, 1 unreadable/corrupt, 2 partial (some entries could not be read).
 checksums_from_zip() {
     local zip="$1"
     if ! head -c 4 "$zip" > /dev/null 2>/dev/null; then
@@ -269,6 +299,7 @@ try:
         if app_prefix is None:
             sys.exit(1)
         results = []
+        unreadable = []
         for info in z.infolist():
             name = info.filename
             if name.endswith('/') or '__MACOSX' in name:
@@ -298,11 +329,14 @@ try:
                 if h is not None:
                     results.append(h + '  ' + rel)
                 else:
-                    print('Warning: cannot read entry ' + rel, file=sys.stderr)
+                    unreadable.append(rel)
                     results.append('(unreadable)  ' + rel)
         locale.setlocale(locale.LC_ALL, '')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
+        if unreadable:
+            print(str(len(unreadable)) + ' entries could not be read', file=sys.stderr)
+            sys.exit(2)
 except Exception as e:
     print('Error: ' + str(e), file=sys.stderr)
     sys.exit(1)
@@ -415,9 +449,13 @@ if [[ "$verify_mode" != "none" ]]; then
 
         zip_size=$(du -sh "$zip" | cut -f1)
         echo "  zip: $zip_size"
-        if ! actual=$(checksums_from_zip "$zip"); then
+        _czrc=0; actual=$(checksums_from_zip "$zip") || _czrc=$?
+        if [[ $_czrc -eq 1 ]]; then
             echo "  SKIPPED ⚠️: zip not readable or corrupt"
             continue
+        elif [[ $_czrc -eq 2 ]]; then
+            _n=$(printf '%s\n' "$actual" | grep -c '^(unreadable)  ' || true)
+            if ! _unreadable_prompt "$zip" "$_n"; then continue; fi
         fi
 
         if [[ -f "$checksumfile" ]]; then
@@ -525,9 +563,13 @@ for app in "${_apps[@]}"; do
             fi
         else
             echo "  CHECKSUM: missing, creating…"
-            if ! zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
+            _czrc=0; zip_checksums=$(checksums_from_zip "$dest/$zipname") || _czrc=$?
+            if [[ $_czrc -eq 1 ]]; then
                 echo "  SKIPPED ⚠️: zip not readable or corrupt"
                 continue
+            elif [[ $_czrc -eq 2 ]]; then
+                _n=$(printf '%s\n' "$zip_checksums" | grep -c '^(unreadable)  ' || true)
+                if ! _unreadable_prompt "$dest/$zipname" "$_n"; then continue; fi
             fi
             live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
             echo "  app: $(du -sh "$app" | cut -f1)"
