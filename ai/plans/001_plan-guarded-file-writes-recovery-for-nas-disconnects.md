@@ -225,9 +225,11 @@ done
 
 ## 4  Verification
 
-1. Simulate NAS failure: run with dest on a local path and fill the disk mid-run
-   (or use `ulimit -f` to limit file size), confirm the menu appears.
-2. Manually create a `_checksum_index_.txt.tmp` at dest, run with `--verify-new`,
-   confirm the recovery dialog fires and the merge is correct.
-3. Run `./archive_apps.sh --verify-new /tmp/test_dest` end-to-end; confirm index
-   is written correctly and no .tmp files are left.
+1. Test write-fail menu: `mkdir /tmp/test_dest && chmod -w /tmp/test_dest`, run
+   `./archive_apps.sh --verify-new /tmp/test_dest`, confirm the menu appears on
+   the first write attempt. Then `chmod +w /tmp/test_dest` to clean up.
+2. Test recovery: `mkdir -p /tmp/test_dest && echo "fakehash  Foo.zip" > /tmp/test_dest/_checksum_index_.txt.tmp`,
+   run `./archive_apps.sh --verify-new /tmp/test_dest`, confirm the recovery
+   dialog fires (3 steps) and the merged index is written correctly.
+3. Smoke test: `./archive_apps.sh --verify-new /tmp/test_dest` end-to-end;
+   confirm index is written and no stray .tmp files remain.
