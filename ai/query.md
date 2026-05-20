@@ -174,3 +174,10 @@ Warning: cannot read entry Contents/Developer/Platforms/AppleTVOS.platform/Devel
 
 ❯ new plan: add progress bar
 
+❯ also for:
+VERIFY 142/150: Xcode.app@15.4@broken.zip
+  CACHE-MISS 🔸: zip
+  CACHE-MISS 🔸: app
+  zip: 4.7G
+
+

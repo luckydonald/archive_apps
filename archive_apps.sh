@@ -577,6 +577,7 @@ for app in "${_apps[@]}"; do
             fi
         else
             echo "  CHECKSUM: missing, creating…"
+            echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
             _czrc=0; zip_checksums=$(checksums_from_zip "$dest/$zipname") || _czrc=$?
             if [[ $_czrc -eq 1 ]]; then
                 echo "  SKIPPED ⚠️: zip not readable or corrupt"
@@ -587,7 +588,6 @@ for app in "${_apps[@]}"; do
             fi
             live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
             echo "  app: $(du -sh "$app" | cut -f1)"
-            echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
                 safe_write "$zip_checksums" "$dest/$checksumname.tmp"
                 safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
