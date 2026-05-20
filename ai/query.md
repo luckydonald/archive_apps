@@ -144,3 +144,5 @@ That's a bit of a problem, now the index is an empty file, and at least some ver
 
 ❯ you tested?
 
+❯ the dest dir is settable - and your plan outlined how to test - what's missing?
+
