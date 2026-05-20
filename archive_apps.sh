@@ -64,6 +64,11 @@ rm_retry() {
 
 _WFAIL_DST=""
 
+_tty_read() {
+    local __var="$1" __default="${2:-}"
+    { read -r "$__var" < /dev/tty; } 2>/dev/null || printf -v "$__var" '%s' "$__default"
+}
+
 _write_fail_menu() {
     local desc="$1" content_or_src="$2" orig_dst="$3" mode="$4"
     local cur_dst="$orig_dst" has_alternate=0 choice confirm tmp_fallback
@@ -76,7 +81,7 @@ _write_fail_menu() {
         echo "  [c] skip (try /tmp, else print)" >&2
         echo "  [d] exit" >&2
         printf "  Choice [a]: " >&2
-        read -r choice < /dev/tty
+        _tty_read choice "c"
         choice="${choice:-a}"
         case "$choice" in
             a)
@@ -87,7 +92,7 @@ _write_fail_menu() {
                 _WFAIL_DST="$cur_dst"; return 0 ;;
             b)
                 printf "  New path: " >&2
-                read -r cur_dst < /dev/tty
+                _tty_read cur_dst ""
                 has_alternate=1; _WFAIL_DST="$cur_dst"; return 0 ;;
             c|d)
                 case "$mode" in
@@ -113,7 +118,7 @@ _write_fail_menu() {
                 esac
                 if [[ "$choice" == "d" ]]; then
                     printf "  Type 'sure' to confirm exit: " >&2
-                    read -r confirm < /dev/tty
+                    _tty_read confirm ""
                     [[ "$confirm" == "sure" ]] && exit 1
                     continue
                 fi
@@ -161,7 +166,7 @@ safe_mv() {
         target="$_WFAIL_DST"
         if mv "$src" "$target" 2>/dev/null; then
             actual=$(wc -l < "$target" 2>/dev/null | tr -d ' ')
-            if [[ -s "$target" && "$actual" -eq "$expected" ]]; then
+            if [[ -f "$target" && "$actual" -eq "$expected" ]]; then
                 return 0
             fi
             echo "  WARN: readback mismatch after mv to $target" >&2
@@ -200,12 +205,12 @@ if [[ "$verify_mode" != "none" ]]; then
     if [[ -f "$index_tmp" ]]; then
         echo "RECOVERY: Found leftover temp file: $(basename "$index_tmp")"
         printf "  Restore it? [Y/n]: "
-        read -r _rc_ans < /dev/tty
+        _tty_read _rc_ans "n"
         if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
             _rc_live_lines=0
             [[ -f "$index_file" ]] && _rc_live_lines=$(wc -l < "$index_file" | tr -d ' ')
             printf "  Existing file: $_rc_live_lines lines. Merge? [Y/n]: "
-            read -r _rc_ans < /dev/tty
+            _tty_read _rc_ans "n"
             if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
                 _rc_tmp_lines=$(wc -l < "$index_tmp" | tr -d ' ')
                 if [[ $_rc_live_lines -gt 0 ]]; then
@@ -224,7 +229,7 @@ if [[ "$verify_mode" != "none" ]]; then
                 echo "  Merge duplicates: $_rc_dup_lines lines"
                 echo "  Resulting file: $_rc_merged_lines lines"
                 printf "  Continue? [Y/n]: "
-                read -r _rc_ans < /dev/tty
+                _tty_read _rc_ans "n"
                 if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
                     _rc_merged_tmp=$(mktemp "$dest/_checksum_index_.XXXXXX.tmp")
                     printf '%s\n' "$_rc_merged" > "$_rc_merged_tmp"
@@ -236,14 +241,17 @@ if [[ "$verify_mode" != "none" ]]; then
         fi
     fi
 
-    : > "$index_tmp"
+    if ! : > "$index_tmp" 2>/dev/null; then
+        echo "ERROR: cannot create index file at $index_tmp — check that $(dirname "$index_tmp") is writable" >&2
+        exit 1
+    fi
 
     _zips=(); while IFS= read -r _l; do _zips+=("$_l"); done < <(find "$dest" -maxdepth 1 -name "*.zip" | sort)
     total=${#_zips[@]}
     width=${#total}
     echo "Verifying $total zip(s) [--verify-$verify_mode]…"
     i=0
-    for zip in "${_zips[@]}"; do
+    for zip in "${_zips[@]+"${_zips[@]}"}"; do
         i=$(( i + 1 ))
         printf -v idx '%0*d' "$width" "$i"
         zipname=$(basename "$zip")
@@ -383,7 +391,7 @@ for app in "${_apps[@]}"; do
             else
                 echo "  MISMATCH ❌: archived checksum does not match current app"
                 printf "  [o]verwrite zip / [b]oth / [s]kip: "
-                read -r choice < /dev/tty
+                _tty_read choice "s"
                 case "$choice" in
                     o|O)
                         rm -f "$dest/$zipname"
@@ -445,7 +453,7 @@ for app in "${_apps[@]}"; do
                 echo "  zip (uncompressed): $zip_size_unc"
                 echo "  MISMATCH ❌: zip checksum does not match current app"
                 printf "  [o]verwrite zip / [b]oth / [s]kip: "
-                read -r choice < /dev/tty
+                _tty_read choice "s"
                 case "$choice" in
                     o|O)
                         rm -f "$dest/$zipname"
