@@ -186,9 +186,27 @@ checksums_from_zip() {
         return 1
     fi
     python3 - "$zip" <<'PYEOF'
-import sys, zipfile, hashlib, locale
+import sys, zipfile, hashlib, locale, subprocess
 
 zpath = sys.argv[1]
+
+def _hash_via_unzip(entry_name):
+    # unzip -p streams decompressed content to stdout; handles zip variants
+    # that Python's zipfile rejects (e.g. ditto ZIP64 local-header quirks).
+    proc = subprocess.Popen(
+        ['unzip', '-p', zpath, entry_name],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+    )
+    sha = hashlib.sha256()
+    while True:
+        chunk = proc.stdout.read(65536)
+        if not chunk:
+            break
+        sha.update(chunk)
+    proc.stdout.close()
+    proc.wait()
+    return sha.hexdigest() if proc.returncode == 0 else None
+
 try:
     with zipfile.ZipFile(zpath) as z:
         app_prefix = None
@@ -217,9 +235,13 @@ try:
                             break
                         sha.update(chunk)
                 results.append(sha.hexdigest() + '  ' + rel)
-            except Exception as entry_err:
-                print('Warning: cannot read entry ' + rel + ': ' + str(entry_err), file=sys.stderr)
-                results.append('(unreadable)  ' + rel)
+            except Exception:
+                h = _hash_via_unzip(name)
+                if h is not None:
+                    results.append(h + '  ' + rel)
+                else:
+                    print('Warning: cannot read entry ' + rel, file=sys.stderr)
+                    results.append('(unreadable)  ' + rel)
         locale.setlocale(locale.LC_ALL, '')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
