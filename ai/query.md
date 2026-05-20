@@ -142,3 +142,5 @@ That's a bit of a problem, now the index is an empty file, and at least some ver
 
 ❯ Do not fill my disk pls.
 
+❯ you tested?
+
