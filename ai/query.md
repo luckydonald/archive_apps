@@ -162,3 +162,6 @@ Unzipping on the NAS is not an option, as it's keeping a file history, and creat
 
 ❯ HAve recovery ask to also delete the tmp file after successful merge
 
+❯ Error: Bad magic number for file header
+  SKIPPED ⚠️: zip not readable or corrupt
+
