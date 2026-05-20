@@ -208,14 +208,18 @@ try:
             if not name.startswith(app_prefix):
                 continue
             rel = name[len(app_prefix):]
-            sha = hashlib.sha256()
-            with z.open(info) as f:
-                while True:
-                    chunk = f.read(65536)
-                    if not chunk:
-                        break
-                    sha.update(chunk)
-            results.append(sha.hexdigest() + '  ' + rel)
+            try:
+                sha = hashlib.sha256()
+                with z.open(info) as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk:
+                            break
+                        sha.update(chunk)
+                results.append(sha.hexdigest() + '  ' + rel)
+            except Exception as entry_err:
+                print('Warning: cannot read entry ' + rel + ': ' + str(entry_err), file=sys.stderr)
+                results.append('(unreadable)  ' + rel)
         locale.setlocale(locale.LC_ALL, '')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
