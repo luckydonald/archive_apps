@@ -160,3 +160,5 @@ Unzipping on the NAS is not an option, as it's keeping a file history, and creat
 
 ❯ Application name can be Unicode, right?
 
+❯ HAve recovery ask to also delete the tmp file after successful merge
+
