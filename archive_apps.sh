@@ -261,8 +261,13 @@ if [[ "$verify_mode" != "none" ]]; then
                     _rc_merged_tmp=$(mktemp "$dest/_checksum_index_.XXXXXX.tmp")
                     printf '%s\n' "$_rc_merged" > "$_rc_merged_tmp"
                     safe_mv "$_rc_merged_tmp" "$index_file"
-                    rm -f "$index_tmp"
                     echo "  RECOVERY ✅: merged and written"
+                    printf "  Delete temp file? [Y/n]: "
+                    _tty_read _rc_ans "n"
+                    if [[ ! "${_rc_ans:-y}" =~ ^[Nn]$ ]]; then
+                        rm -f "$index_tmp"
+                        echo "  RECOVERY: temp file deleted"
+                    fi
                 fi
             fi
         fi
