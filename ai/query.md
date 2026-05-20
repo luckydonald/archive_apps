@@ -156,3 +156,5 @@ Unzipping on the NAS is not an option, as it's keeping a file history, and creat
 
 ❯ Why do we need to use the original name?
 
+❯ Hold on - I wanted that cosmetic with the app version in the ZIP - why remove it now?
+
