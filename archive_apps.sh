@@ -186,13 +186,63 @@ checksums_from_zip() {
         return 1
     fi
     python3 - "$zip" <<'PYEOF'
-import sys, zipfile, hashlib, locale, subprocess
+import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib
 
 zpath = sys.argv[1]
 
+def _find_zip64_offset(fp, info):
+    # Python bug: when only header_offset needs ZIP64 (file/compress sizes < 4 GB),
+    # Python misassigns the 8-byte ZIP64 offset field to file_size and leaves
+    # header_offset at the sentinel 0xFFFFFFFF.  The true offset is still in
+    # info.extra — scan it for any value > 4 GB that has PK\x03\x04 there.
+    extra = info.extra or b''
+    i = 0
+    while i + 4 <= len(extra):
+        tag, size = struct.unpack_from('<HH', extra, i)
+        i += 4
+        if tag == 0x0001:  # ZIP64 extended information
+            n = (min(size, len(extra) - i) // 8) * 8
+            for j in range(0, n, 8):
+                v = struct.unpack_from('<Q', extra, i + j)[0]
+                if v > 0xFFFFFFFF:
+                    try:
+                        fp.seek(v)
+                        if fp.read(4) == b'PK\x03\x04':
+                            return v
+                    except Exception:
+                        pass
+        i += size
+    return None
+
+def _hash_at_offset(fp, info, header_offset):
+    # Read fname_len and extra_len from local header (offsets 26 and 28).
+    fp.seek(header_offset + 26)
+    fname_len, extra_len = struct.unpack('<HH', fp.read(4))
+    fp.seek(header_offset + 30 + fname_len + extra_len)
+    sha = hashlib.sha256()
+    remaining = info.compress_size
+    if info.compress_type == 0:  # stored
+        while remaining > 0:
+            chunk = fp.read(min(65536, remaining))
+            if not chunk:
+                return None
+            sha.update(chunk)
+            remaining -= len(chunk)
+    elif info.compress_type == 8:  # deflate
+        d = _zlib.decompressobj(-15)
+        while remaining > 0:
+            chunk = fp.read(min(65536, remaining))
+            if not chunk:
+                return None
+            sha.update(d.decompress(chunk))
+            remaining -= len(chunk)
+        sha.update(d.flush())
+    else:
+        return None
+    return sha.hexdigest()
+
 def _hash_via_unzip(entry_name):
-    # unzip -p streams decompressed content to stdout; handles zip variants
-    # that Python's zipfile rejects (e.g. ditto ZIP64 local-header quirks).
+    # Last-resort fallback: stream via unzip -p (handles other zip quirks).
     proc = subprocess.Popen(
         ['unzip', '-p', zpath, entry_name],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
@@ -236,7 +286,15 @@ try:
                         sha.update(chunk)
                 results.append(sha.hexdigest() + '  ' + rel)
             except Exception:
-                h = _hash_via_unzip(name)
+                h = None
+                true_offset = _find_zip64_offset(z.fp, info)
+                if true_offset is not None:
+                    try:
+                        h = _hash_at_offset(z.fp, info, true_offset)
+                    except Exception:
+                        pass
+                if h is None:
+                    h = _hash_via_unzip(name)
                 if h is not None:
                     results.append(h + '  ' + rel)
                 else:
