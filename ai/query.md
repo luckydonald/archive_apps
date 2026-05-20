@@ -146,3 +146,8 @@ That's a bit of a problem, now the index is an empty file, and at least some ver
 
 ❯ the dest dir is settable - and your plan outlined how to test - what's missing?
 
+❯ /plan The script is failing for xcode.zip, which is `4.5 GB` (!).
+What are ways to reduce or remove disk space usage?
+I.e. copying the zip, extracting the zip.
+What are options to do shizzle like that on-the-fly?
+
