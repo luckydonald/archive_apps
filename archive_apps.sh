@@ -216,7 +216,7 @@ checksums_from_zip() {
         return 1
     fi
     python3 - "$zip" <<'PYEOF'
-import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib
+import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os
 
 zpath = sys.argv[1]
 
@@ -298,15 +298,24 @@ try:
                 break
         if app_prefix is None:
             sys.exit(1)
-        results = []
+        entries = [info for info in z.infolist()
+                   if not info.filename.endswith('/')
+                   and '__MACOSX' not in info.filename
+                   and info.filename.startswith(app_prefix)]
+        _total = len(entries)
+        _tty   = os.isatty(sys.stderr.fileno())
+        _step  = max(1, _total // 200)
+        def _bar(i):
+            pct    = i * 100 // _total if _total else 100
+            filled = i * 40  // _total if _total else 40
+            b = '=' * filled + ('>' if filled < 40 else '') + ' ' * (39 - filled)
+            sys.stderr.write(f'\r  [{b}] {i}/{_total} ({pct}%)')
+            sys.stderr.flush()
+        results    = []
         unreadable = []
-        for info in z.infolist():
+        for _i, info in enumerate(entries, 1):
             name = info.filename
-            if name.endswith('/') or '__MACOSX' in name:
-                continue
-            if not name.startswith(app_prefix):
-                continue
-            rel = name[len(app_prefix):]
+            rel  = name[len(app_prefix):]
             try:
                 sha = hashlib.sha256()
                 with z.open(info) as f:
@@ -331,6 +340,11 @@ try:
                 else:
                     unreadable.append(rel)
                     results.append('(unreadable)  ' + rel)
+            if _tty and (_i % _step == 0 or _i == _total):
+                _bar(_i)
+        if _tty:
+            sys.stderr.write('\r\033[K')
+            sys.stderr.flush()
         locale.setlocale(locale.LC_ALL, '')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
