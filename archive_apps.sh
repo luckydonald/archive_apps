@@ -177,25 +177,52 @@ safe_mv() {
     done
 }
 
-# Extract <zip> to a temp dir, compute per-file SHA256 checksums relative to the
-# .app root inside, print them to stdout, then clean up.
-# Returns 1 if the zip is unreadable (e.g. Synology dataless file).
+# Stream zip entries through Python's zipfile module, hash each in RAM, print
+# per-file SHA256 checksums relative to the .app root.  Writes zero bytes.
+# Returns 1 if the zip is unreadable, has no .app bundle, or is corrupt.
 checksums_from_zip() {
-    local zip="$1" tmpcheck zipapp result
-    tmpcheck=$(mktemp -d)
-    if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
-        rm_retry "$tmpcheck"
+    local zip="$1"
+    if ! head -c 4 "$zip" > /dev/null 2>/dev/null; then
         return 1
     fi
-    if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-        rm_retry "$tmpcheck"
-        return 1
-    fi
-    rm -f "$tmpcheck/archive.zip"
-    zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
-    result=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
-    rm_retry "$tmpcheck"
-    printf '%s' "$result"
+    python3 - "$zip" <<'PYEOF'
+import sys, zipfile, hashlib, locale
+
+zpath = sys.argv[1]
+try:
+    with zipfile.ZipFile(zpath) as z:
+        app_prefix = None
+        for name in z.namelist():
+            parts = name.split('/')
+            if not name.endswith('/') and '__MACOSX' not in name \
+               and len(parts) > 1 and parts[0].endswith('.app'):
+                app_prefix = parts[0] + '/'
+                break
+        if app_prefix is None:
+            sys.exit(1)
+        results = []
+        for info in z.infolist():
+            name = info.filename
+            if name.endswith('/') or '__MACOSX' in name:
+                continue
+            if not name.startswith(app_prefix):
+                continue
+            rel = name[len(app_prefix):]
+            sha = hashlib.sha256()
+            with z.open(info) as f:
+                while True:
+                    chunk = f.read(65536)
+                    if not chunk:
+                        break
+                    sha.update(chunk)
+            results.append(sha.hexdigest() + '  ' + rel)
+        locale.setlocale(locale.LC_ALL, '')
+        results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
+        print('\n'.join(results))
+except Exception as e:
+    print('Error: ' + str(e), file=sys.stderr)
+    sys.exit(1)
+PYEOF
 }
 
 if [[ "$verify_mode" != "none" ]]; then
@@ -299,25 +326,10 @@ if [[ "$verify_mode" != "none" ]]; then
 
         zip_size=$(du -sh "$zip" | cut -f1)
         echo "  zip: $zip_size"
-        # Full extraction and verification
-        tmpcheck=$(mktemp -d)
-        if ! cp "$zip" "$tmpcheck/archive.zip" 2>/dev/null; then
-            rm_retry "$tmpcheck"
-            echo "  SKIPPED ⚠️: not readable (possibly not synced locally)"
+        if ! actual=$(checksums_from_zip "$zip"); then
+            echo "  SKIPPED ⚠️: zip not readable or corrupt"
             continue
         fi
-        if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-            rm_retry "$tmpcheck"
-            echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
-            continue
-        fi
-        rm -f "$tmpcheck/archive.zip"
-        zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
-        app_size=$(du -sh "$zipapp" | cut -f1)
-        actual=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
-        rm_retry "$tmpcheck"
-        echo "  app: $app_size"
-        echo "  EXTRACTED: done"
 
         if [[ -f "$checksumfile" ]]; then
             if [[ "$(cat "$checksumfile")" == "$actual" ]]; then
@@ -424,33 +436,19 @@ for app in "${_apps[@]}"; do
             fi
         else
             echo "  CHECKSUM: missing, creating…"
-            tmpcheck=$(mktemp -d)
-            if ! cp "$dest/$zipname" "$tmpcheck/archive.zip" 2>/dev/null; then
-                echo "  SKIPPED ⚠️: zip not readable; possibly not synced locally"
-                rm_retry "$tmpcheck"
+            if ! zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
+                echo "  SKIPPED ⚠️: zip not readable or corrupt"
                 continue
             fi
-            if ! ditto -x -k "$tmpcheck/archive.zip" "$tmpcheck"; then
-                rm_retry "$tmpcheck"
-                echo "  SKIPPED ⚠️: zip corrupt (ditto extraction failed)"
-                continue
-            fi
-            rm -f "$tmpcheck/archive.zip"
-            zipapp=$(find "$tmpcheck" -maxdepth 1 -name "*.app" -type d | head -1)
-            zip_checksums=$(find "$zipapp" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$zipapp/||")
             live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
             echo "  app: $(du -sh "$app" | cut -f1)"
             echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
-                rm_retry "$tmpcheck"
                 safe_write "$zip_checksums" "$dest/$checksumname.tmp"
                 safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
                 echo "  CHECKSUM: written"
                 echo "  VERIFIED ✅: zip checksum matches current app"
             else
-                zip_size_unc=$(du -sh "$zipapp" | cut -f1)
-                rm_retry "$tmpcheck"
-                echo "  zip (uncompressed): $zip_size_unc"
                 echo "  MISMATCH ❌: zip checksum does not match current app"
                 printf "  [o]verwrite zip / [b]oth / [s]kip: "
                 _tty_read choice "s"

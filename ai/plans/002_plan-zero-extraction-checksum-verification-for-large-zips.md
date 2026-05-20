@@ -65,7 +65,9 @@ try:
                     sha.update(chunk)
             results.append(sha.hexdigest() + '  ' + rel)
 
-        results.sort(key=lambda x: x.split('  ', 1)[1])
+        import locale
+        locale.setlocale(locale.LC_ALL, '')
+        results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
 except Exception as e:
     print('Error: ' + str(e), file=sys.stderr)
@@ -79,9 +81,10 @@ stdout. No tmpdir needed.
 
 ### Sort order note
 
-Existing checksums were produced by `find | sort -z | shasum`. Python's
-default `str.sort()` on ASCII paths produces identical byte order to POSIX
-`sort`. For app bundles (always ASCII paths) this is equivalent. ✓
+Existing checksums were produced by `find | sort -z | shasum`. App names (and
+paths inside bundles) can be Unicode. Python's `locale.strxfrm` with
+`LC_ALL=''` picks up the system locale and matches macOS `sort`'s collation,
+so the order will be identical for both ASCII and Unicode paths. ✓
 
 ### Inline extraction sites → also converted
 
@@ -113,22 +116,12 @@ This unifies three independent extraction sites into one helper call.
 
 ---
 
-## Archiving path (secondary improvement)
+## Archiving path — no change
 
-The 5 archiving sites copy the app into a tmpdir in `$dest`, then zip from there
-(to get `AppName version.app` as the internal zip entry name). On APFS this
-is a CoW clone (cheap). On a NAS dest, it's a full byte-copy of the app
-(30 GB for Xcode).
-
-**Optional fix:** zip directly from `/Applications/AppName.app`:
-```bash
-ditto -c -k --sequesterRsrc --keepParent "$app" "$dest/$zipname.tmp"
-```
-
-Eliminates the intermediate copy entirely. Internal zip entry changes from
-`AppName version.app` to `AppName.app` — the zip filename already carries the
-version. Checksum comparison is unaffected (both sides strip the top-level dir
-name). **Decide before implementing.**
+The 5 archiving sites copy the app to a tmpdir in `$dest` to rename it
+`AppName version.app` before zipping. This is intentional (version visible
+when manually unzipping). The tmpdir lives in `$dest` so on APFS it's a
+CoW clone; on NAS it's NAS-local. Leave as-is.
 
 ---
 
@@ -143,7 +136,7 @@ name). **Decide before implementing.**
 | Rewrite `checksums_from_zip()` to use Python streaming | ~183–200 |
 | Replace verify-loop inline extract block with `checksums_from_zip()` call | ~295–320 |
 | Replace main-loop CHECKSUM:missing inline extract with `checksums_from_zip()` call | ~420–445 |
-| (Optional) Remove app copy in 5 archiving sites | ~399–502 |
+| Archiving path | no change |
 
 ---
 
