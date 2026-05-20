@@ -169,3 +169,6 @@ Unzipping on the NAS is not an option, as it's keeping a file history, and creat
 
 ❯ Warning: cannot read entry Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS.sdk/usr/include/c++/v1/__type_traits/is_base_of.h
 
+❯ it's still spamming
+Warning: cannot read entry Contents/Developer/Platforms/AppleTVOS.platform/Developer/SDKs/AppleTVOS.sdk/usr/include/c++/v1/__random/bernoulli_distribution.h
+
