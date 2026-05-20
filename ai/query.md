@@ -154,3 +154,5 @@ What are options to do shizzle like that on-the-fly?
 ❯ Like, asume the 4GB zip is on the NAS, but my hdd has 2GB free.
 Unzipping on the NAS is not an option, as it's keeping a file history, and creating & deleting the zip contents would spam the file version storage of the NAS.
 
+❯ Why do we need to use the original name?
+
