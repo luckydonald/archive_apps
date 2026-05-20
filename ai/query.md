@@ -165,3 +165,5 @@ Unzipping on the NAS is not an option, as it's keeping a file history, and creat
 ❯ Error: Bad magic number for file header
   SKIPPED ⚠️: zip not readable or corrupt
 
+❯ I'd rather have it properly parse the zip? @ai/errors/6.md
+
