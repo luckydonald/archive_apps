@@ -185,3 +185,6 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ continue
 
+❯ Uuuuh,
+@ai/errors/7.md
+
