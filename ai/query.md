@@ -183,3 +183,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ /plan nice, progressbar is good. Now I want the same for all cp/mv operations which may span volumes or the possibly big data.
 
+❯ continue
+
