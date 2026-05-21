@@ -192,3 +192,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ ignore the error, did you commit?
 
+❯ give commands you execute  a timeout, something's not right
+
