@@ -209,3 +209,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 ❯ > the filename itself tells them the version
 ...but only after we rewritten the filename, yes?
 
+❯ Ah, can ditto follow symlinks like that?
+
