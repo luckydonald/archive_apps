@@ -202,3 +202,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ Considering @ai/errors/7.md, yes. It shall still have a progress bar though.
 
+❯ what does "via local symlink" mean?
+
