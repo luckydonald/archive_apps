@@ -646,8 +646,9 @@ for app in "${_apps[@]}"; do
     echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
     safe_write "$live_checksums" "$dest/$checksumname.tmp"
     safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
-    echo "  CHECKSUM: written"
+    echo "  CHECKSUM: written for app"
 
+    echo "  CHECKSUM: verifying zip..."
     if zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
         if [[ "$zip_checksums" == "$live_checksums" ]]; then
             echo "  CREATED ✅: archived checksum matches app"
