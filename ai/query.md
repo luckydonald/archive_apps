@@ -190,3 +190,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ continue
 
+❯ ignore the error, did you commit?
+
