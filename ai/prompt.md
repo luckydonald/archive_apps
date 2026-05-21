@@ -170,3 +170,33 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
   zip: 4.7G
 
 
+❯ /plan nice, progressbar is good. Now I want the same for all cp/mv operations which may span volumes or the possibly big data.
+
+❯ continue
+
+❯ Uuuuh,
+@ai/errors/7.md
+
+❯ continue
+
+❯ ignore the error, did you commit?
+
+❯ give commands you execute  a timeout, something's not right
+
+❯ is that command not working?
+
+❯ No, I cancel it after like 2 minutes, one of them running for over an hour
+
+❯ can you see the output of the ! commands, too?
+
+❯ Considering @ai/errors/7.md, yes. It shall still have a progress bar though.
+
+❯ what does "via local symlink" mean?
+
+❯ Isn't there a way to rename a file inside a zip file?
+
+❯ > the filename itself tells them the version
+...but only after we rewritten the filename, yes?
+
+❯ Ah, can ditto follow symlinks like that?
+
