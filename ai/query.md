@@ -198,3 +198,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ No, I cancel it after like 2 minutes, one of them running for over an hour
 
+❯ can you see the output of the ! commands, too?
+
