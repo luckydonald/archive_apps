@@ -204,3 +204,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ what does "via local symlink" mean?
 
+❯ Isn't there a way to rename a file inside a zip file?
+
