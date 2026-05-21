@@ -206,3 +206,6 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ Isn't there a way to rename a file inside a zip file?
 
+❯ > the filename itself tells them the version
+...but only after we rewritten the filename, yes?
+
