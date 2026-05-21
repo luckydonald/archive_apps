@@ -200,3 +200,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ can you see the output of the ! commands, too?
 
+❯ Considering @ai/errors/7.md, yes. It shall still have a progress bar though.
+
