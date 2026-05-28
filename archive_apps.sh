@@ -49,6 +49,9 @@ cleanup() {
         sort -k2 "$dest/_checksum_index_.txt.tmp" > "$dest/_checksum_index_.txt" 2>/dev/null || true
         rm -f "$dest/_checksum_index_.txt.tmp"
     fi
+    for _td in "$dest"/.archive_apps.*; do
+        [[ -d "$_td" ]] && rm -rf "$_td"
+    done
 }
 trap cleanup EXIT
 
@@ -60,6 +63,48 @@ rm_retry() {
     done
     echo "ERROR: failed to remove $dir after 5 attempts" >&2
     exit 1
+}
+
+_progress_bar_filter() {
+    local label="$1" total="$2"
+    awk -v total="$total" -v label="$label" '
+        BEGIN { step = int(total/200); if (step < 1) step = 1 }
+        { n++
+          if (n % step == 0 || n == total) {
+            pct    = int(n * 100 / total)
+            filled = int(n * 40  / total)
+            bar    = ""; for (i=0; i<filled; i++) bar = bar "="
+            if (filled < 40) bar = bar ">"
+            while (length(bar) < 40) bar = bar " "
+            printf "\r  %s [%s] %d/%d (%d%%)", label, bar, n, total, pct > "/dev/stderr"
+            fflush("/dev/stderr")
+          }
+        }
+        END { printf "\r\033[K" > "/dev/stderr"; fflush("/dev/stderr") }
+    '
+}
+
+_archive_app_to_zip() {
+    local app="$1" versioned="$2" dest_zip="$3"
+    local tmpdir total use_bar=0
+    tmpdir=$(mktemp -d "$(dirname "$dest_zip")/.archive_apps.XXXXXX")
+    total=$(find "$app" -not -type d | wc -l | tr -d ' ')
+    [[ -t 2 && $total -gt 0 ]] && use_bar=1
+
+    if [[ $use_bar -eq 1 && "${cp_flags[*]}" != *c* ]]; then
+        { ditto -V "$app" "$tmpdir/$versioned"; } 2>&1 | _progress_bar_filter "COPY" "$total"
+    else
+        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
+    fi
+
+    if [[ $use_bar -eq 1 ]]; then
+        { (cd "$tmpdir" && ditto -V -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip"); } 2>&1 | \
+            _progress_bar_filter "ZIP " "$total"
+    else
+        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip")
+    fi
+
+    rm_retry "$tmpdir"
 }
 
 _WFAIL_DST=""
@@ -549,10 +594,7 @@ for app in "${_apps[@]}"; do
                     o|O)
                         rm -f "$dest/$zipname"
                         versioned="${name} ${version}.app"
-                        tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
-                        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-                        rm_retry "$tmpdir"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         safe_write "$live_checksums" "$dest/$checksumname.tmp"
                         safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -562,10 +604,7 @@ for app in "${_apps[@]}"; do
                         newzip="${name}.app@${mobile}${version}~${suffix}.zip"
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
                         versioned="${name} ${version}.app"
-                        tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
-                        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
-                        rm_retry "$tmpdir"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         safe_write "$live_checksums" "$dest/$newcheck.tmp"
                         safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -601,10 +640,7 @@ for app in "${_apps[@]}"; do
                     o|O)
                         rm -f "$dest/$zipname"
                         versioned="${name} ${version}.app"
-                        tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
-                        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-                        rm_retry "$tmpdir"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         safe_write "$live_checksums" "$dest/$checksumname.tmp"
                         safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -616,10 +652,7 @@ for app in "${_apps[@]}"; do
                         newzip="${name}.app@${mobile}${version}~${suffix}.zip"
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
                         versioned="${name} ${version}.app"
-                        tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-                        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
-                        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$newzip.tmp")
-                        rm_retry "$tmpdir"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         safe_write "$live_checksums" "$dest/$newcheck.tmp"
                         safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -637,10 +670,7 @@ for app in "${_apps[@]}"; do
     echo "  app: $(du -sh "$app" | cut -f1)"
     live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
     versioned="${name} ${version}.app"
-    tmpdir=$(mktemp -d "$dest/.archive_apps.XXXXXX")
-    cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
-    (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest/$zipname.tmp")
-    rm_retry "$tmpdir"
+    _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
     echo "  ZIP+HASH: created"
     echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
