@@ -50,7 +50,7 @@ cleanup() {
         rm -f "$dest/_checksum_index_.txt.tmp"
     fi
     for _td in "$dest"/.archive_apps.*; do
-        [[ -d "$_td" ]] && rm -rf "$_td"
+        [[ -d "$_td" ]] && rm -rfi "$_td"
     done
 }
 trap cleanup EXIT
