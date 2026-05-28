@@ -1,0 +1,3 @@
+- [ ] use xattr or something to colorize the zip files
+- [ ] write to the description of the real app file, when it was last updated. Also set the color to red if never was updated, orange if an old version is updated, and green if it is the current version and the hashes matches. If there's a mismatch, gray.
+- [ ] Random sort when copying so it's not stuck with the same one every time.
