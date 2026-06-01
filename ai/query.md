@@ -224,3 +224,13 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 › One more to test: `MQTT Explorer.app@0.3.5.zip`
 
+› Alright, if symlinks are the problem: a) what is in the zips? Symlinks or regular files? b) I think the checksum should always include the symlinks - or depending on _a)_, the actual files? c) For "I want to make sure this can be unzipped and run" wouldn't it make sense to have the symlinked stuff in there as well? Or at least as backup? Or would that explode size? Maybe this should be backupped seperatly then - so it can be at least restored manually if needed?
+
+› Can those contain symlinks going outside of the `.app` folder?
+› Yes, be defensive, and support symlinks.
+```text
+• Questions 1/1 answered
+  • How strict should the script be about symlinks that resolve outside the archived `.app` bundle?
+    answer: Warn and skip archive (Recommended)
+    note: ask the user to skip/archive anyways. Add a flag to pre-answer this question for the run of the script with either `skip`, `abort` or `archive`.
+```
