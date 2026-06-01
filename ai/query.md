@@ -303,3 +303,9 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › How easy is renaming the pathes in the zip after the fact? Source drive has low storage, so not an option.
 
+› back to the symlinks, how do they fair with the current copy-before-zip approach?
+
+› Does it no longer write to _checksum_index_.txt now?
+
+› For some reason the copy and zip step always go to 200% - maybe a *2 needs to put on the total in those two cases?
+
