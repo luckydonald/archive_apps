@@ -200,3 +200,7 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 ❯ Ah, can ditto follow symlinks like that?
 
+› $committing-with-lplp-style
+
+› The compression loop of the script shall randomly order the files, so it won't be stuck at the same file over and over again
+
