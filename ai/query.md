@@ -301,3 +301,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 › would this script better be a python tool from the get-go, instead of mixing it?
 Also while checking, tell me solutions for preventing to have to copy the files to the target drive temporarily - i.e. an in-memory or a direct-zip-write approach. Note that the namechange of the app in the zip to include the version - so it unzips as that `name+number.app` is a required feature and can not be dropped.
 
+› How easy is renaming the pathes in the zip after the fact? Source drive has low storage, so not an option.
+
