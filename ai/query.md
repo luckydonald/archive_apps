@@ -234,3 +234,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
     answer: Warn and skip archive (Recommended)
     note: ask the user to skip/archive anyways. Add a flag to pre-answer this question for the run of the script with either `skip`, `abort` or `archive`.
 ```
+› The default action shall be archive, but needs to be warned at the end of the run, to increase readability.
+
