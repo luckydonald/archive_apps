@@ -218,3 +218,9 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 › /bin/bash /Users/user/Documents/programming/Shell/archive_apps/archive_apps.sh "/Volumes/Shed/Install/macOS X/macOS 26 - Tahoe - M1/Applications.zip/data"
 /Users/user/Documents/programming/Shell/archive_apps/archive_apps.sh: line 88: local: -n: invalid option
 
+› check why the written checksum does not match the zip. This happens at every archival. @ai/errors/8.md
+
+› But it also happens for what I assume are non-mobile apps - without simlinks I think? - i.e. @ai/errors/9.md
+
+› One more to test: `MQTT Explorer.app@0.3.5.zip`
+
