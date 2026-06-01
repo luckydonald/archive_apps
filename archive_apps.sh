@@ -76,7 +76,8 @@ _progress_bar_filter() {
     local label="$1" total="$2"
     awk -v total="$total" -v label="$label" '
         BEGIN { step = int(total/200); if (step < 1) step = 1 }
-        { n++
+        /^copying / {
+          n++
           if (n % step == 0 || n == total) {
             pct    = int(n * 100 / total)
             filled = int(n * 40  / total)
