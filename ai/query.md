@@ -294,3 +294,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 - End-of-run aggregation is preferred over repeated per-app warning noise for readability.
 
 
+› With the changes why am I getting `VERIFIED ✅: archived checksum matches current app` on previous apps (i.e. `Hidden Bar.app@1.8.zip`)? shouldn't those now need a upgrade to handle the symlinks?
+
