@@ -314,6 +314,26 @@ for rel, target, resolved in entries:
 PYEOF
 }
 
+_count_live_symlinks() {
+    local app="$1"
+    python3 - "$app" <<'PYEOF'
+import os, stat, sys
+
+app_root = os.path.abspath(sys.argv[1])
+count = 0
+for root, dirs, files in os.walk(app_root, topdown=True, followlinks=False):
+    for name in dirs + files:
+        path = os.path.join(root, name)
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(st.st_mode):
+            count += 1
+print(count)
+PYEOF
+}
+
 _record_external_symlink_summary() {
     local app_label="$1" source_label="$2" entries="$3"
     [[ -n "$entries" ]] || return 0
@@ -325,7 +345,12 @@ _record_external_symlink_summary() {
 }
 
 _handle_external_symlinks() {
-    local app_label="$1" source_label="$2" entries="$3"
+    local app_label="$1" source_label="$2" total_count="$3" entries="$4"
+    local external_count=0
+    if [[ -n "$entries" ]]; then
+        external_count=$(printf '%s\n' "$entries" | awk 'NF { n++ } END { print n + 0 }')
+    fi
+    echo "  SYMLINKS: checked $source_label; found $total_count symlink(s), $external_count external"
     [[ -n "$entries" ]] || return 0
     _record_external_symlink_summary "$app_label" "$source_label" "$entries"
     echo "  SYMLINK WARN: external target(s) detected; policy=$external_symlink_policy"
@@ -606,6 +631,38 @@ except Exception:
 PYEOF
 }
 
+count_symlinks_from_zip() {
+    local zip="$1"
+    if ! head -c 4 "$zip" > /dev/null 2>/dev/null; then
+        return 1
+    fi
+    python3 - "$zip" <<'PYEOF'
+import stat, sys, zipfile
+
+zpath = sys.argv[1]
+try:
+    with zipfile.ZipFile(zpath) as z:
+        app_prefix = None
+        for name in z.namelist():
+            parts = name.split('/')
+            if not name.endswith('/') and '__MACOSX' not in name and len(parts) > 1 and parts[0].endswith('.app'):
+                app_prefix = parts[0]
+                break
+        if app_prefix is None:
+            sys.exit(1)
+        count = 0
+        for info in z.infolist():
+            if info.filename.endswith('/') or '__MACOSX' in info.filename or not info.filename.startswith(app_prefix + '/'):
+                continue
+            mode = (info.external_attr >> 16) & 0xFFFF
+            if stat.S_IFMT(mode) == stat.S_IFLNK:
+                count += 1
+        print(count)
+except Exception:
+    sys.exit(1)
+PYEOF
+}
+
 if [[ "$verify_mode" != "none" ]]; then
     index_file="$dest/_checksum_index_.txt"
     index_tmp="$dest/_checksum_index_.txt.tmp"
@@ -720,8 +777,9 @@ if [[ "$verify_mode" != "none" ]]; then
             _n=$(printf '%s\n' "$actual" | grep -c '^(unreadable)  ' || true)
             if ! _unreadable_prompt "$zip" "$_n"; then continue; fi
         fi
+        zip_symlink_count=$(count_symlinks_from_zip "$zip" || true)
         zip_external_symlinks=$(external_symlinks_from_zip "$zip" || true)
-        if ! _handle_external_symlinks "$zipname" "verify zip" "$zip_external_symlinks"; then
+        if ! _handle_external_symlinks "$zipname" "verify zip" "${zip_symlink_count:-0}" "$zip_external_symlinks"; then
             continue
         fi
 
@@ -781,8 +839,9 @@ for app in "${_apps[@]}"; do
     zipname="${name}.app@${mobile}${version}.zip"
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
     echo "ARCHIVING $idx/$total: $zipname"
+    live_symlink_count=$(_count_live_symlinks "$app")
     live_external_symlinks=$(_collect_external_live_symlinks "$app")
-    if ! _handle_external_symlinks "$zipname" "live app" "$live_external_symlinks"; then
+    if ! _handle_external_symlinks "$zipname" "live app" "$live_symlink_count" "$live_external_symlinks"; then
         continue
     fi
 
@@ -793,8 +852,9 @@ for app in "${_apps[@]}"; do
             echo "  CHECKSUM: found"
             echo "  app: $(du -sh "$app" | cut -f1)"
             echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
+            zip_symlink_count=$(count_symlinks_from_zip "$dest/$zipname" || true)
             zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
-            if ! _handle_external_symlinks "$zipname" "existing zip" "$zip_external_symlinks"; then
+            if ! _handle_external_symlinks "$zipname" "existing zip" "${zip_symlink_count:-0}" "$zip_external_symlinks"; then
                 continue
             fi
             live_checksums=$(_collect_app_manifest "$app" full)
@@ -840,8 +900,9 @@ for app in "${_apps[@]}"; do
                 _n=$(printf '%s\n' "$zip_checksums" | grep -c '^(unreadable)  ' || true)
                 if ! _unreadable_prompt "$dest/$zipname" "$_n"; then continue; fi
             fi
+            zip_symlink_count=$(count_symlinks_from_zip "$dest/$zipname" || true)
             zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
-            if ! _handle_external_symlinks "$zipname" "existing zip" "$zip_external_symlinks"; then
+            if ! _handle_external_symlinks "$zipname" "existing zip" "${zip_symlink_count:-0}" "$zip_external_symlinks"; then
                 continue
             fi
             live_checksums=$(_collect_app_manifest "$app" full)
@@ -899,8 +960,9 @@ for app in "${_apps[@]}"; do
 
     echo "  CHECKSUM: verifying zip..."
     if zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
+        zip_symlink_count=$(count_symlinks_from_zip "$dest/$zipname" || true)
         zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
-        if ! _handle_external_symlinks "$zipname" "new zip" "$zip_external_symlinks"; then
+        if ! _handle_external_symlinks "$zipname" "new zip" "${zip_symlink_count:-0}" "$zip_external_symlinks"; then
             continue
         fi
         if [[ "$zip_checksums" == "$live_checksums" ]]; then

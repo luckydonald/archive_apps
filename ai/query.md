@@ -296,3 +296,5 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 › With the changes why am I getting `VERIFIED ✅: archived checksum matches current app` on previous apps (i.e. `Hidden Bar.app@1.8.zip`)? shouldn't those now need a upgrade to handle the symlinks?
 
+› add a print that the check for symlinks ran, in any case, including success; reporting how many symlinks were found, too.
+
