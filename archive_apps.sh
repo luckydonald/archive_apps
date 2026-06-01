@@ -3,6 +3,8 @@ set -euo pipefail
 
 verify_mode="none"
 dest_arg=""
+external_symlink_policy="archive"
+external_symlink_summary=()
 
 for arg in "$@"; do
     case "$arg" in
@@ -11,11 +13,16 @@ for arg in "$@"; do
             echo "  --verify-zips     extract and verify all zips against their checksum files"
             echo "  --verify-new      verify only zips/checksums not yet in the checksum index"
             echo "  --verify-changed  verify zips whose index hash differs from current file"
+            echo "  --external-symlink-policy=archive|skip|abort"
+            echo "                    handling for symlinks that resolve outside the app bundle"
+            echo "                    default: archive, with an end-of-run warning summary"
             echo "  destination       archive directory (default: /Users/Shared/App Versions)"
             exit 0 ;;
         --verify-zips)    verify_mode="zips" ;;
         --verify-new)     verify_mode="new" ;;
         --verify-changed) verify_mode="changed" ;;
+        --external-symlink-policy=archive|skip|abort)
+            external_symlink_policy="${arg#*=}" ;;
         -*)
             echo "Unknown option: $arg" >&2; exit 1 ;;
         *)
@@ -235,6 +242,139 @@ safe_mv() {
     done
 }
 
+_sha256_text() {
+    local text="$1"
+    printf '%s' "$text" | shasum -a 256 | awk '{print $1}'
+}
+
+_collect_app_manifest() {
+    local app="$1" mode="${2:-full}"
+    python3 - "$app" "$mode" <<'PYEOF'
+import hashlib, locale, os, stat, sys
+
+app_root = os.path.abspath(sys.argv[1])
+mode = sys.argv[2]
+lines = []
+
+for root, dirs, files in os.walk(app_root, topdown=True, followlinks=False):
+    dirs.sort(key=locale.strxfrm)
+    names = sorted(dirs + files, key=locale.strxfrm)
+    for name in names:
+        path = os.path.join(root, name)
+        rel = os.path.relpath(path, app_root)
+        st = os.lstat(path)
+        if stat.S_ISREG(st.st_mode):
+            sha = hashlib.sha256()
+            with open(path, 'rb') as f:
+                for chunk in iter(lambda: f.read(65536), b''):
+                    sha.update(chunk)
+            lines.append((rel, f"{sha.hexdigest()}  {rel}"))
+        elif mode == 'full' and stat.S_ISLNK(st.st_mode):
+            target = os.readlink(path).encode('utf-8', 'surrogateescape')
+            sha = hashlib.sha256(target).hexdigest()
+            lines.append((rel, f"{sha}  {rel}"))
+
+lines.sort(key=lambda item: locale.strxfrm(item[0]))
+for _, line in lines:
+    print(line)
+PYEOF
+}
+
+_collect_external_live_symlinks() {
+    local app="$1"
+    python3 - "$app" <<'PYEOF'
+import locale, os, stat, sys
+
+app_root = os.path.abspath(sys.argv[1])
+entries = []
+for root, dirs, files in os.walk(app_root, topdown=True, followlinks=False):
+    dirs.sort(key=locale.strxfrm)
+    names = sorted(dirs + files, key=locale.strxfrm)
+    for name in names:
+        path = os.path.join(root, name)
+        try:
+            st = os.lstat(path)
+        except FileNotFoundError:
+            continue
+        if not stat.S_ISLNK(st.st_mode):
+            continue
+        rel = os.path.relpath(path, app_root)
+        target = os.readlink(path)
+        resolved = os.path.realpath(path)
+        try:
+            common = os.path.commonpath([app_root, resolved])
+        except ValueError:
+            common = None
+        if common != app_root:
+            entries.append((rel, target, resolved))
+
+entries.sort(key=lambda item: locale.strxfrm(item[0]))
+for rel, target, resolved in entries:
+    print(f"{rel}\t{target}\t{resolved}")
+PYEOF
+}
+
+_record_external_symlink_summary() {
+    local app_label="$1" source_label="$2" entries="$3"
+    [[ -n "$entries" ]] || return 0
+    external_symlink_summary+=("__APP__"$'\t'"$app_label"$'\t'"$source_label")
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        external_symlink_summary+=("$line")
+    done <<< "$entries"
+}
+
+_handle_external_symlinks() {
+    local app_label="$1" source_label="$2" entries="$3"
+    [[ -n "$entries" ]] || return 0
+    _record_external_symlink_summary "$app_label" "$source_label" "$entries"
+    echo "  SYMLINK WARN: external target(s) detected; policy=$external_symlink_policy"
+    case "$external_symlink_policy" in
+        archive) return 0 ;;
+        skip)
+            echo "  SKIPPED ⚠️: external symlink policy"
+            return 1 ;;
+        abort)
+            echo "  ABORTED ❌: external symlink policy"
+            exit 1 ;;
+    esac
+}
+
+_print_external_symlink_summary() {
+    [[ ${#external_symlink_summary[@]} -gt 0 ]] || return 0
+    echo
+    echo "External symlink summary:"
+    local line
+    for line in "${external_symlink_summary[@]}"; do
+        if [[ "$line" == __APP__* ]]; then
+            IFS=$'\t' read -r _marker app_label source_label <<< "$line"
+            echo "  $app_label [$source_label]"
+            continue
+        fi
+        IFS=$'\t' read -r rel target resolved <<< "$line"
+        echo "    $rel -> $target"
+        echo "      resolved: $resolved"
+    done
+}
+
+_verify_checksum_file_contents() {
+    local checksumfile="$1" actual_full="$2" actual_legacy="$3"
+    local existing
+    existing=$(cat "$checksumfile")
+    if [[ "$existing" == "$actual_full" ]]; then
+        echo "  VERIFIED ✅: checksum matches"
+        return 0
+    fi
+    if [[ "$existing" == "$actual_legacy" ]]; then
+        echo "  VERIFIED ✅: legacy checksum matches; upgrading"
+        safe_write "$actual_full" "${checksumfile}.tmp"
+        safe_mv "${checksumfile}.tmp" "$checksumfile"
+        return 0
+    fi
+    echo "  FAILED ❌: checksum differs"
+    return 1
+}
+
 # Called when checksums_from_zip exits 2 (some entries unreadable).
 # Prompts the user; returns 0 to continue processing the zip, 1 to skip it.
 _unreadable_prompt() {
@@ -269,14 +409,15 @@ _unreadable_prompt() {
 # per-file SHA256 checksums relative to the .app root.  Writes zero bytes.
 # Returns 0 OK, 1 unreadable/corrupt, 2 partial (some entries could not be read).
 checksums_from_zip() {
-    local zip="$1"
+    local zip="$1" mode="${2:-full}"
     if ! head -c 4 "$zip" > /dev/null 2>/dev/null; then
         return 1
     fi
-    python3 - "$zip" <<'PYEOF'
-import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os
+    python3 - "$zip" "$mode" <<'PYEOF'
+import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os, stat
 
 zpath = sys.argv[1]
+manifest_mode = sys.argv[2]
 
 def _find_zip64_offset(fp, info):
     # Python bug: when only header_offset needs ZIP64 (file/compress sizes < 4 GB),
@@ -374,25 +515,34 @@ try:
         for _i, info in enumerate(entries, 1):
             name = info.filename
             rel  = name[len(app_prefix):]
+            unix_mode = (info.external_attr >> 16) & 0xFFFF
+            is_link = stat.S_IFMT(unix_mode) == stat.S_IFLNK
+            if is_link and manifest_mode != 'full':
+                continue
             try:
-                sha = hashlib.sha256()
-                with z.open(info) as f:
-                    while True:
-                        chunk = f.read(65536)
-                        if not chunk:
-                            break
-                        sha.update(chunk)
-                results.append(sha.hexdigest() + '  ' + rel)
+                if is_link:
+                    target = z.read(info).rstrip(b'\n')
+                    results.append(hashlib.sha256(target).hexdigest() + '  ' + rel)
+                else:
+                    sha = hashlib.sha256()
+                    with z.open(info) as f:
+                        while True:
+                            chunk = f.read(65536)
+                            if not chunk:
+                                break
+                            sha.update(chunk)
+                    results.append(sha.hexdigest() + '  ' + rel)
             except Exception:
                 h = None
-                true_offset = _find_zip64_offset(z.fp, info)
-                if true_offset is not None:
-                    try:
-                        h = _hash_at_offset(z.fp, info, true_offset)
-                    except Exception:
-                        pass
-                if h is None:
-                    h = _hash_via_unzip(name)
+                if not is_link:
+                    true_offset = _find_zip64_offset(z.fp, info)
+                    if true_offset is not None:
+                        try:
+                            h = _hash_at_offset(z.fp, info, true_offset)
+                        except Exception:
+                            pass
+                    if h is None:
+                        h = _hash_via_unzip(name)
                 if h is not None:
                     results.append(h + '  ' + rel)
                 else:
@@ -411,6 +561,47 @@ try:
             sys.exit(2)
 except Exception as e:
     print('Error: ' + str(e), file=sys.stderr)
+    sys.exit(1)
+PYEOF
+}
+
+external_symlinks_from_zip() {
+    local zip="$1"
+    if ! head -c 4 "$zip" > /dev/null 2>/dev/null; then
+        return 1
+    fi
+    python3 - "$zip" <<'PYEOF'
+import locale, os, posixpath, stat, sys, zipfile
+
+zpath = sys.argv[1]
+try:
+    with zipfile.ZipFile(zpath) as z:
+        app_prefix = None
+        for name in z.namelist():
+            parts = name.split('/')
+            if not name.endswith('/') and '__MACOSX' not in name and len(parts) > 1 and parts[0].endswith('.app'):
+                app_prefix = parts[0]
+                break
+        if app_prefix is None:
+            sys.exit(1)
+        entries = []
+        app_root = "/" + app_prefix
+        for info in z.infolist():
+            if info.filename.endswith('/') or '__MACOSX' in info.filename or not info.filename.startswith(app_prefix + '/'):
+                continue
+            mode = (info.external_attr >> 16) & 0xFFFF
+            if stat.S_IFMT(mode) != stat.S_IFLNK:
+                continue
+            rel = info.filename[len(app_prefix) + 1:]
+            target = z.read(info).rstrip(b'\n').decode('utf-8', 'surrogateescape')
+            link_dir = posixpath.dirname("/" + info.filename)
+            resolved = posixpath.normpath(posixpath.join(link_dir, target))
+            if not resolved.startswith(app_root + "/") and resolved != app_root:
+                entries.append((rel, target, resolved))
+        entries.sort(key=lambda item: locale.strxfrm(item[0]))
+        for rel, target, resolved in entries:
+            print(f"{rel}\t{target}\t{resolved}")
+except Exception:
     sys.exit(1)
 PYEOF
 }
@@ -529,13 +720,14 @@ if [[ "$verify_mode" != "none" ]]; then
             _n=$(printf '%s\n' "$actual" | grep -c '^(unreadable)  ' || true)
             if ! _unreadable_prompt "$zip" "$_n"; then continue; fi
         fi
+        zip_external_symlinks=$(external_symlinks_from_zip "$zip" || true)
+        if ! _handle_external_symlinks "$zipname" "verify zip" "$zip_external_symlinks"; then
+            continue
+        fi
 
         if [[ -f "$checksumfile" ]]; then
-            if [[ "$(cat "$checksumfile")" == "$actual" ]]; then
-                echo "  VERIFIED ✅: checksum still matches expanded app"
-            else
-                echo "  FAILED ❌: checksum differs"
-            fi
+            actual_legacy=$(checksums_from_zip "$zip" legacy)
+            _verify_checksum_file_contents "$checksumfile" "$actual" "$actual_legacy"
         else
             echo "  CHECKSUM: missing, creating…"
             safe_write "$actual" "${checksumfile}.tmp"
@@ -589,6 +781,10 @@ for app in "${_apps[@]}"; do
     zipname="${name}.app@${mobile}${version}.zip"
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
     echo "ARCHIVING $idx/$total: $zipname"
+    live_external_symlinks=$(_collect_external_live_symlinks "$app")
+    if ! _handle_external_symlinks "$zipname" "live app" "$live_external_symlinks"; then
+        continue
+    fi
 
     if [[ -f "$dest/$zipname" ]]; then
         echo "  ARCHIVE: found"
@@ -597,8 +793,13 @@ for app in "${_apps[@]}"; do
             echo "  CHECKSUM: found"
             echo "  app: $(du -sh "$app" | cut -f1)"
             echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
-            live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
-            if [[ "$(cat "$dest/$checksumname")" == "$live_checksums" ]]; then
+            zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
+            if ! _handle_external_symlinks "$zipname" "existing zip" "$zip_external_symlinks"; then
+                continue
+            fi
+            live_checksums=$(_collect_app_manifest "$app" full)
+            live_checksums_legacy=$(_collect_app_manifest "$app" legacy)
+            if _verify_checksum_file_contents "$dest/$checksumname" "$live_checksums" "$live_checksums_legacy"; then
                 echo "  VERIFIED ✅: archived checksum matches current app"
             else
                 echo "  MISMATCH ❌: archived checksum does not match current app"
@@ -639,7 +840,11 @@ for app in "${_apps[@]}"; do
                 _n=$(printf '%s\n' "$zip_checksums" | grep -c '^(unreadable)  ' || true)
                 if ! _unreadable_prompt "$dest/$zipname" "$_n"; then continue; fi
             fi
-            live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
+            zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
+            if ! _handle_external_symlinks "$zipname" "existing zip" "$zip_external_symlinks"; then
+                continue
+            fi
+            live_checksums=$(_collect_app_manifest "$app" full)
             echo "  app: $(du -sh "$app" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
                 safe_write "$zip_checksums" "$dest/$checksumname.tmp"
@@ -682,7 +887,7 @@ for app in "${_apps[@]}"; do
 
     echo "  ARCHIVE: missing"
     echo "  app: $(du -sh "$app" | cut -f1)"
-    live_checksums=$(find "$app" -type f -print0 | sort -z | xargs -0 shasum -a 256 | sed "s|$app/||")
+    live_checksums=$(_collect_app_manifest "$app" full)
     versioned="${name} ${version}.app"
     _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
@@ -694,6 +899,10 @@ for app in "${_apps[@]}"; do
 
     echo "  CHECKSUM: verifying zip..."
     if zip_checksums=$(checksums_from_zip "$dest/$zipname"); then
+        zip_external_symlinks=$(external_symlinks_from_zip "$dest/$zipname" || true)
+        if ! _handle_external_symlinks "$zipname" "new zip" "$zip_external_symlinks"; then
+            continue
+        fi
         if [[ "$zip_checksums" == "$live_checksums" ]]; then
             echo "  CREATED ✅: archived checksum matches app"
         else
@@ -703,3 +912,4 @@ for app in "${_apps[@]}"; do
         echo "  SKIPPED ⚠️: zip not readable for post-archive verification"
     fi
 done
+_print_external_symlink_summary
