@@ -85,13 +85,15 @@ _progress_bar_filter() {
 }
 
 _shuffle_array() {
-    local -n _arr_ref="$1"
-    local i j tmp
-    for ((i=${#_arr_ref[@]}-1; i>0; i--)); do
+    local _arr_name="$1"
+    local i j tmp_i tmp_j len
+    eval "len=\${#${_arr_name}[@]}"
+    for ((i=len-1; i>0; i--)); do
         j=$(( RANDOM % (i + 1) ))
-        tmp="${_arr_ref[i]}"
-        _arr_ref[i]="${_arr_ref[j]}"
-        _arr_ref[j]="$tmp"
+        eval "tmp_i=\${${_arr_name}[i]}"
+        eval "tmp_j=\${${_arr_name}[j]}"
+        eval "${_arr_name}[i]=\$tmp_j"
+        eval "${_arr_name}[j]=\$tmp_i"
     done
 }
 

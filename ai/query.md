@@ -215,3 +215,6 @@ VERIFY 142/150: Xcode.app@15.4@broken.zip
 
 › The compression loop of the script shall randomly order the files, so it won't be stuck at the same file over and over again
 
+› /bin/bash /Users/user/Documents/programming/Shell/archive_apps/archive_apps.sh "/Volumes/Shed/Install/macOS X/macOS 26 - Tahoe - M1/Applications.zip/data"
+/Users/user/Documents/programming/Shell/archive_apps/archive_apps.sh: line 88: local: -n: invalid option
+
