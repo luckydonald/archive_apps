@@ -43,6 +43,13 @@ if command -v git-lfs >/dev/null 2>&1; then
   git lfs install --local >/dev/null 2>&1 || true
 fi
 
+# GitHub's LFS lock API can reject pushes when credentials are valid for git
+# push but not for lock verification. This repo does not use LFS locks, so keep
+# the generated pre-push hook from checking them for local GitHub HTTPS remotes.
+if command -v python3 >/dev/null 2>&1; then
+  python3 "$REPO_ROOT/scripts/°base/git/remote/fix_username.py" --fix-lfs-locks-only >/dev/null 2>&1 || true
+fi
+
 # ─── 4. Install pre-commit hooks ────────────────────────────────────────────
 # Installs commit-msg and pre-commit hooks types as configured in
 # .pre-commit-config.yaml

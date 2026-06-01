@@ -114,13 +114,13 @@ For both cases write `app/zip: abcdef123...` and then `INDEXED ✅: already veri
 
 ❯ Another thought for another time, maybe-never: Freshly writing a zip file should write the checksums to the index too, so at least that would not be recomputed.
 
-❯ /plan 
+❯ /plan
 Check out @ai/errors/5.md , when I put the laptop to sleep, on the NAS connection.
 That's a bit of a problem, now the index is an empty file, and at least some version of `.tmp` still exists.
-1) guard writing 
+1) guard writing
    - both of those files
    - including a readback verification.
-   - If it fails, ask to 
+   - If it fails, ask to
      - a)  retry (default selection)
           - this is for attempting the last write again
      - a') retry original (if you chose a different destination via _b)_, you can reset it and retry that one.

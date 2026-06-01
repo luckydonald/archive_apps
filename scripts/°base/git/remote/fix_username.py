@@ -344,6 +344,20 @@ def rewrite_github_https_url(
     return urlunsplit(split._replace(netloc=netloc, path=path))
 
 
+def github_lfs_locksverify_key(url: str) -> str | None:
+    info = parse_github_https_url(url)
+    if info is None:
+        return None
+    endpoint = urlunsplit(
+        info.split._replace(
+            path=f"{info.path_without_suffix}.git/info/lfs",
+            query="",
+            fragment="",
+        )
+    )
+    return f"lfs.{endpoint}.locksverify"
+
+
 def make_url_selection(kind: Literal["fetch", "push"], url: str) -> RemoteUrlSelection:
     github = parse_github_https_url(url)
     return RemoteUrlSelection(
@@ -468,6 +482,24 @@ def build_execution_plan(remotes: Sequence[RemoteSelection], username: str) -> E
 def apply_execution_plan(plan: ExecutionPlan, repo_root: Path) -> None:
     for command in plan.commands:
         run_command(command, cwd=repo_root)
+
+
+def apply_lfs_locksverify_fix(repo_root: Path, remotes: Sequence[RemoteSelection] | None = None) -> list[str]:
+    remotes = list(remotes) if remotes is not None else discover_remotes(repo_root)
+    keys: list[str] = []
+    seen: set[str] = set()
+    for remote in remotes:
+        for selection in remote.descendants():
+            key = github_lfs_locksverify_key(selection.original_url)
+            if key is None or key in seen:
+                continue
+            seen.add(key)
+            current = git_output(["config", "--local", "--get", key], cwd=repo_root, check=False)
+            if current.lower() == "false":
+                continue
+            run_command(["git", "config", "--local", key, "false"], cwd=repo_root)
+            keys.append(key)
+    return keys
 
 
 def ensure_prompt_toolkit(argv: Sequence[str]) -> None:
@@ -1713,13 +1745,17 @@ def run_tui(
     return app.run()
 
 
-def print_applied_summary(plan: ExecutionPlan) -> None:
+def print_applied_summary(plan: ExecutionPlan, lfs_keys: Sequence[str] = ()) -> None:
     if not plan.previews:
-        print("No changes were applied.")
-        return
-    print(f"Applied {len(plan.previews)} remote URL change(s):")
-    for preview in plan.previews:
-        print(f"- {preview.remote_name} {preview.kind}: {preview.old_url} -> {preview.new_url}")
+        print("No remote URL changes were applied.")
+    else:
+        print(f"Applied {len(plan.previews)} remote URL change(s):")
+        for preview in plan.previews:
+            print(f"- {preview.remote_name} {preview.kind}: {preview.old_url} -> {preview.new_url}")
+    if lfs_keys:
+        print(f"Disabled Git LFS lock verification for {len(lfs_keys)} endpoint(s):")
+        for key in lfs_keys:
+            print(f"- {key}")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -1727,6 +1763,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         description="Interactively add or replace GitHub usernames in git remote HTTPS URLs."
     )
     parser.add_argument("--username", help="Prefill the username field.")
+    parser.add_argument(
+        "--fix-lfs-locks-only",
+        action="store_true",
+        help="Only disable Git LFS lock verification for discovered GitHub HTTPS remotes, then exit.",
+    )
     parser.add_argument(
         "--theme",
         choices=sorted(THEMES),
@@ -1749,6 +1790,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("No git remotes found in this repository.", file=sys.stderr)
         return 1
 
+    if args.fix_lfs_locks_only:
+        try:
+            lfs_keys = apply_lfs_locksverify_fix(repo_root, remotes)
+        except GitCommandError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        if lfs_keys:
+            print(f"Disabled Git LFS lock verification for {len(lfs_keys)} endpoint(s).")
+        else:
+            print("Git LFS lock verification was already disabled for discovered GitHub HTTPS remotes.")
+        return 0
+
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         print("This script requires an interactive terminal.", file=sys.stderr)
         return 1
@@ -1766,11 +1819,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         apply_execution_plan(plan, repo_root)
+        lfs_keys = apply_lfs_locksverify_fix(repo_root)
     except GitCommandError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
-    print_applied_summary(plan)
+    print_applied_summary(plan, lfs_keys)
     return 0
 
 

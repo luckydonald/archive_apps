@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import unittest
 
-from ai.scripts.tests.git_remote_fix_tui_test_support import (
+from git_remote_fix_tui_test_support import (
     MODULE,
     PROMPT_TOOLKIT_AVAILABLE,
     TuiTestCase,

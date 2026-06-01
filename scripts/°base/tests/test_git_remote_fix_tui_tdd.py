@@ -1,5 +1,5 @@
 import unittest
-from ai.scripts.tests.git_remote_fix_tui_test_support import (
+from git_remote_fix_tui_test_support import (
     MODULE,
     TuiTestCase,
     flatten_fragments,

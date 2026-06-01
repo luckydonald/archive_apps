@@ -28,6 +28,7 @@ from _lib import (  # noqa: E402
     _chdir_to_git_root,
     _is_inside_base_repo,
     _subproject_root,
+    base_ai_commit_subject,
     read_payload,
 )
 
@@ -56,10 +57,6 @@ def _sync_file(src: Path, dst: Path) -> bool:
     """Make ``dst`` a hardlink (or symlink fallback) of ``src``.
     Returns True if something changed; False if already in sync."""
     if not src.is_file():
-        # Source went away — remove dst so the working tree mirrors reality.
-        if dst.is_symlink() or dst.exists():
-            dst.unlink()
-            return True
         return False
 
     if dst.is_symlink():
@@ -83,22 +80,58 @@ def _sync_file(src: Path, dst: Path) -> bool:
     return True
 
 
-def _sync_all(src_dir: Path, dst_dir: Path) -> list[str]:
-    """Sync every `*.md` in src_dir into dst_dir, and remove any orphaned
-    `*.md` files in dst_dir that no longer exist in src_dir."""
+def _git_text(*args: str) -> str:
+    result = subprocess.run(["git", *args], capture_output=True, text=True)
+    return (result.stdout or "").strip()
+
+
+def _has_memory_delete_marker(commit: str, name: str) -> bool:
+    marker = f"Deleted Memory: {name}"
+    message = _git_text("show", "-s", "--format=%B", commit)
+    return any(line.rstrip("\r") == marker for line in message.splitlines())
+
+
+def _is_marked_deleted(dst_dir_rel: str, name: str) -> bool:
+    relpath = f"{dst_dir_rel}/{name}"
+    commits = _git_text("log", "--diff-filter=D", "--format=%H", "--", relpath)
+    for commit in commits.splitlines():
+        return _has_memory_delete_marker(commit, name)
+    return False
+
+
+def _unlink_file(path: Path) -> bool:
+    if path.is_symlink() or path.exists():
+        path.unlink()
+        return True
+    return False
+
+
+def _sync_all(src_dir: Path, dst_dir: Path, dst_dir_rel: str) -> list[str]:
+    """Sync memory files without treating a missing source as a delete.
+
+    Repo memory is the durable copy. A missing Claude source file is recreated
+    from the repo file. A stale Claude source file is removed only when git
+    history has an explicit `Deleted Memory: <name>.md` marker for that file.
+    """
     changed: list[str] = []
     src_names: set[str] = set()
     if src_dir.is_dir():
         for src in sorted(src_dir.glob("*.md")):
             src_names.add(src.name)
+            if (
+                not (dst_dir / src.name).exists()
+                and _is_marked_deleted(dst_dir_rel, src.name)
+            ):
+                _unlink_file(src)
+                continue
             if _sync_file(src, dst_dir / src.name):
                 changed.append(src.name)
+
     if dst_dir.is_dir():
         for dst in sorted(dst_dir.glob("*.md")):
             if dst.name in src_names:
                 continue
-            if _sync_file(src_dir / dst.name, dst):
-                changed.append(dst.name)
+            _sync_file(dst, src_dir / dst.name)
     return changed
 
 
@@ -112,6 +145,7 @@ def _commit(dst_dir_rel: str, names: list[str]) -> None:
         head = ", ".join(Path(n).stem for n in names[:3])
         extra = f" (+{len(names) - 3} more)" if len(names) > 3 else ""
         msg = f"ai: record memories {head}{extra}"
+    msg = base_ai_commit_subject(msg)
     subprocess.run(["git", "commit", "--only", dst_dir_rel, "-m", msg], capture_output=True)
 
 
@@ -291,7 +325,7 @@ def main() -> int:
     # Clean up any legacy whole-folder link planted by `hardlink_memories.sh`
     # so the new per-file hardlinks don't duplicate memory state in the repo.
     _uninstall_legacy_all(subproject, src_dir)
-    changed = _sync_all(src_dir, dst_dir)
+    changed = _sync_all(src_dir, dst_dir, dst_dir_rel)
     _commit(dst_dir_rel, changed)
     return 0
 

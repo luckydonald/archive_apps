@@ -4,3 +4,15 @@
   language: system
   stages: [commit-msg]
   always_run: true
+- id: require-memory-delete-marker
+  name: Require marker for memory deletions
+  entry: python3 scripts/°base/git/hooks/commit/require_memory_delete_marker.py
+  language: system
+  stages: [commit-msg]
+  always_run: true
+- id: ai-settings-sync
+  name: Check Claude/Codex settings sync
+  entry: python3 scripts/°base/ai/settings/sync.py --check
+  language: system
+  pass_filenames: false
+  always_run: true

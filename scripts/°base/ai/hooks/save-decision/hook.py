@@ -65,6 +65,8 @@ def _render_block(tool_input: dict, answer: str) -> str:
 def main() -> int:
     payload = read_payload()
     tool_input = payload.get("tool_input") or {}
+    if not tool_input and isinstance(payload.get("questions"), list):
+        tool_input = {"questions": payload.get("questions") or []}
     questions = tool_input.get("questions") or []
     if not questions:
         return 0

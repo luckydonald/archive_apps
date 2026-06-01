@@ -61,6 +61,17 @@ class UrlHelperTests(unittest.TestCase):
         )
         self.assertEqual(rewritten, "https://someone@github.com/owner/repo.git")
 
+    def test_github_lfs_locksverify_key_canonicalizes_endpoint(self) -> None:
+        key = MODULE.github_lfs_locksverify_key("https://someone@github.com/owner/repo")
+        self.assertEqual(
+            key,
+            "lfs.https://someone@github.com/owner/repo.git/info/lfs.locksverify",
+        )
+
+    def test_github_lfs_locksverify_key_rejects_non_github_urls(self) -> None:
+        self.assertIsNone(MODULE.github_lfs_locksverify_key("git@github.com:owner/repo.git"))
+        self.assertIsNone(MODULE.github_lfs_locksverify_key("https://example.com/owner/repo.git"))
+
     def test_resolve_default_username_prefers_remote_username(self) -> None:
         remotes = [
             MODULE.RemoteSelection(
@@ -216,6 +227,39 @@ class IntegrationTests(unittest.TestCase):
         remote = remotes[0]
         self.assertFalse(remote.fetch.eligible)
         self.assertFalse(remote.push.eligible)
+
+    def test_apply_lfs_locksverify_fix_sets_local_config_for_github_https_remotes(self) -> None:
+        repo = self.make_repo()
+        git(["remote", "add", "origin", "https://github.com/owner/repo"], repo)
+        git(["remote", "set-url", "--push", "origin", "https://someone@github.com/owner/repo.git"], repo)
+
+        keys = MODULE.apply_lfs_locksverify_fix(repo)
+
+        self.assertEqual(
+            keys,
+            [
+                "lfs.https://github.com/owner/repo.git/info/lfs.locksverify",
+                "lfs.https://someone@github.com/owner/repo.git/info/lfs.locksverify",
+            ],
+        )
+        self.assertEqual(
+            git(["config", "--local", "--get", keys[0]], repo),
+            "false",
+        )
+        self.assertEqual(
+            git(["config", "--local", "--get", keys[1]], repo),
+            "false",
+        )
+
+    def test_apply_lfs_locksverify_fix_is_idempotent(self) -> None:
+        repo = self.make_repo()
+        git(["remote", "add", "origin", "https://github.com/owner/repo.git"], repo)
+
+        first_keys = MODULE.apply_lfs_locksverify_fix(repo)
+        second_keys = MODULE.apply_lfs_locksverify_fix(repo)
+
+        self.assertEqual(first_keys, ["lfs.https://github.com/owner/repo.git/info/lfs.locksverify"])
+        self.assertEqual(second_keys, [])
 
 
 if __name__ == "__main__":

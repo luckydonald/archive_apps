@@ -40,8 +40,9 @@ indent_size = 2
 end_of_line = lf
 
 # Makefiles always use tabs for indentation, and fail otherwise
-[Makefile]
+[{Makefile,Makefile.*}]
 indent_style = tab
+indent_size = 0
 tab_width = 4
 
 # Batch files use tabs for indentation

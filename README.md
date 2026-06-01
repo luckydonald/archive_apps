@@ -209,6 +209,8 @@ Once the base is present in your repo, the files provided by this repo live in y
 
 This base tracks binary image files (`.png`, `.jpg`, `.jpeg`) with [Git LFS](https://git-lfs.com). The `git lfs install` command in the setup steps above is a one-time setup per machine. The `.gitattributes` file already defines which file types are tracked, so no additional `git lfs track` calls are needed.
 
+After the base files are present in a repository, `scripts/°base/init/checkout.sh` also installs the local LFS hooks and disables GitHub LFS lock verification for discovered GitHub HTTPS remotes. This avoids push failures like `You must have push access to verify locks` in repos that use LFS files but do not use LFS locks.
+
 ### Monorepo subfolders: per-subfolder `.claude/`
 
 If you've merged `base` at the top of a monorepo but intend to run Claude from a subfolder (e.g. `monorepo/some_project/`), Claude Code's settings discovery starts at the launch directory and won't reach the root-level `.claude/` from there. Run the helper once inside each subfolder where you want Claude:

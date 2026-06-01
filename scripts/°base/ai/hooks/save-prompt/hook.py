@@ -31,7 +31,9 @@ def main() -> int:
     prefix = PREFIXES.get(ai_tool, DEFAULT_PREFIX)
 
     payload = read_payload()
-    prompt = payload.get("prompt") or ""
+    prompt = payload.get("prompt") or payload.get("user_prompt") or ""
+    if not prompt and isinstance(payload.get("tool_input"), dict):
+        prompt = payload["tool_input"].get("prompt") or ""
     if not prompt.strip():
         return 0
     if prompt.strip() in SKIP_PROMPTS:

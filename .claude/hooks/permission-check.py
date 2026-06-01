@@ -72,8 +72,11 @@ def collect_commit_messages(argv):
                 if path == "-":
                     # stdin — cannot inspect
                     continue
-                with open(path) as f:
-                    messages.append(f.read())
+                try:
+                    with open(path) as f:
+                        messages.append(f.read())
+                except OSError:
+                    continue
             else:
                 i += 1
         elif arg.startswith("--file="):
@@ -81,8 +84,11 @@ def collect_commit_messages(argv):
             i += 1
             if path == "-":
                 continue
-            with open(path) as f:
-                messages.append(f.read())
+            try:
+                with open(path) as f:
+                    messages.append(f.read())
+            except OSError:
+                continue
         else:
             i += 1
     return messages
@@ -122,11 +128,17 @@ def main():
     try:
         data = json.load(sys.stdin)
         tool_name = data.get("tool_name", "")
-        if tool_name != "Bash":
+        if tool_name not in {"Bash", "shell", "unified_exec"}:
             print("{}")
             return
 
-        command = data.get("tool_input", {}).get("command", "")
+        tool_input = data.get("tool_input", {}) or {}
+        command = (
+            tool_input.get("command")
+            or tool_input.get("cmd")
+            or data.get("command")
+            or ""
+        )
         if not command:
             print("{}")
             return

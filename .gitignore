@@ -614,7 +614,7 @@ env/
 env.bak/
 
 ## virtualenv
-.venv
+.venv/
 venv/
 ENV/
 *.venv/
@@ -817,17 +817,35 @@ playwright-report/
 **/spacetime.local.json
 
 # Yarn 4
+# Yarn PnP
 # https://yarnpkg.com/getting-started/qa#which-files-should-be-gitignored
+
 .pnp.*
+**/.pnp.*
+
 .yarn/*
+**/.yarn/*
+
 !.yarn/patches
+!**/.yarn/patches
+
 !.yarn/plugins
+!**/.yarn/plugins
+
 !.yarn/releases
+!**/.yarn/releases
+
 !.yarn/sdks
+!**/.yarn/sdks
+
 !.yarn/versions
+!**/.yarn/versions
+
 # inside .yarn, so should already be ignored, but make sure to not accidentally add big ass zip of node modules.
 install-state.gz
 **/install-state.gz
+
+
 
 # generic foo.local.bar files
 *.local
@@ -843,6 +861,10 @@ install-state.gz
 # AI folder
 ai/git/pending-commit.md
 ai/git/rebase-msg-*.md
+ai/git/rebase-msg.md
+
+# AI docs: api/webpage downloads
+ai/apis/
 
 # Scripts folder
 !/scripts/

@@ -54,8 +54,7 @@ def _git_bytes(*args: str) -> bytes:
 
 def _is_inside_base_repo(subproject_root: Path) -> bool:
     """True iff we are inside the `base` meta-repo: subproject directory named
-    `base`, remotes are exactly `empty` and `origin`, origin pointing at
-    luckydonald/base.
+    `base`, with origin pointing at luckydonald/base.
 
     In a stand-alone consuming repo, subproject_root == git_root and the name
     won't be `base`, so this returns False. In a monorepo, subproject_root is
@@ -63,10 +62,17 @@ def _is_inside_base_repo(subproject_root: Path) -> bool:
     """
     if subproject_root.name != "base":
         return False
-    remotes = sorted(_git_text("remote").split())
-    if remotes != ["empty", "origin"]:
-        return False
-    return bool(re.search(r"luckydonald/base(\.git)?$", _git_text("remote", "get-url", "origin")))
+    origin = _git_text("remote", "get-url", "origin")
+    return bool(re.search(r"(^|[:/])luckydonald/base(\.git)?/?$", origin, re.I))
+
+
+def base_ai_commit_subject(msg: str) -> str:
+    """Prefix base-repo AI auto-commit subjects with ``[base] ``."""
+    if msg.startswith("[base] "):
+        return msg
+    if _is_inside_base_repo(_subproject_root()):
+        return f"[base] {msg}"
+    return msg
 
 
 def _subproject_root() -> Path:
@@ -124,9 +130,9 @@ def _commit_message(template_relpath: str, default_msg: str) -> str:
     # (relevant in monorepos where cwd is the git root, not the subproject).
     template = _subproject_root() / template_relpath
     if not template.is_file():
-        return default_msg
+        return base_ai_commit_subject(default_msg)
     text = template.read_text(encoding="utf-8").replace("\n", "").replace("\r", "").strip()
-    return text or default_msg
+    return base_ai_commit_subject(text or default_msg)
 
 
 def _restore_staged(snap: tuple[Path, Path], relpath: str) -> None:
