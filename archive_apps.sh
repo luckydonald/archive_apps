@@ -84,6 +84,17 @@ _progress_bar_filter() {
     '
 }
 
+_shuffle_array() {
+    local -n _arr_ref="$1"
+    local i j tmp
+    for ((i=${#_arr_ref[@]}-1; i>0; i--)); do
+        j=$(( RANDOM % (i + 1) ))
+        tmp="${_arr_ref[i]}"
+        _arr_ref[i]="${_arr_ref[j]}"
+        _arr_ref[j]="$tmp"
+    done
+}
+
 _archive_app_to_zip() {
     local app="$1" versioned="$2" dest_zip="$3"
     local tmpdir total use_bar=0
@@ -546,6 +557,7 @@ if [[ "$verify_mode" != "none" ]]; then
 fi
 
 _apps=(); while IFS= read -r _l; do _apps+=("$_l"); done < <(find /Applications -maxdepth 2 -name "*.app" -type d)
+_shuffle_array _apps
 total=${#_apps[@]}
 width=${#total}
 echo "Checking $total app(s)…"
