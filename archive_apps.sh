@@ -5,6 +5,7 @@ verify_mode="none"
 dest_arg=""
 external_symlink_policy="archive"
 external_symlink_summary=()
+keep_temp=0
 
 for arg in "$@"; do
     case "$arg" in
@@ -13,6 +14,7 @@ for arg in "$@"; do
             echo "  --verify-zips     extract and verify all zips against their checksum files"
             echo "  --verify-new      verify only zips/checksums not yet in the checksum index"
             echo "  --verify-changed  verify zips whose index hash differs from current file"
+            echo "  --keep-temp       preserve temp workdirs and leftover .tmp files for reuse"
             echo "  --external-symlink-policy=archive|skip|abort"
             echo "                    handling for symlinks that resolve outside the app bundle"
             echo "                    default: archive, with an end-of-run warning summary"
@@ -21,6 +23,7 @@ for arg in "$@"; do
         --verify-zips)    verify_mode="zips" ;;
         --verify-new)     verify_mode="new" ;;
         --verify-changed) verify_mode="changed" ;;
+        --keep-temp)      keep_temp=1 ;;
         --external-symlink-policy=archive|skip|abort)
             external_symlink_policy="${arg#*=}" ;;
         -*)
@@ -43,6 +46,13 @@ fi
 _preserve_tmps=()
 
 cleanup() {
+    if [[ -f "$dest/_checksum_index_.txt.tmp" ]]; then
+        sort -k2 "$dest/_checksum_index_.txt.tmp" > "$dest/_checksum_index_.txt" 2>/dev/null || true
+        [[ $keep_temp -eq 1 ]] || rm -f "$dest/_checksum_index_.txt.tmp"
+    fi
+    if [[ $keep_temp -eq 1 ]]; then
+        return 0
+    fi
     rm -f "$dest"/*.zip.tmp
     for _cf in "$dest"/*.checksums.txt.tmp; do
         [[ -f "$_cf" ]] || continue
@@ -52,10 +62,6 @@ cleanup() {
         done
         [[ $_skip -eq 1 ]] || rm -f "$_cf"
     done
-    if [[ -f "$dest/_checksum_index_.txt.tmp" ]]; then
-        sort -k2 "$dest/_checksum_index_.txt.tmp" > "$dest/_checksum_index_.txt" 2>/dev/null || true
-        rm -f "$dest/_checksum_index_.txt.tmp"
-    fi
     for _td in "$dest"/.archive_apps.*; do
         [[ -d "$_td" ]] && rm_retry "$_td"
     done
@@ -200,27 +206,65 @@ _shuffle_array() {
     done
 }
 
-_archive_app_to_zip() {
-    local app="$1" versioned="$2" dest_zip="$3"
-    local tmpdir total use_bar=0
-    tmpdir=$(mktemp -d "$(dirname "$dest_zip")/.archive_apps.XXXXXX")
+_sanitize_temp_component() {
+    local value="$1"
+    value=$(printf '%s' "$value" | tr -cs '[:alnum:].@_-' '_')
+    value=${value#_}
+    value=${value%_}
+    printf '%s' "${value:-app}"
+}
+
+_archive_workdir_path() {
+    local archive_stem="$1" manifest_hash="$2"
+    local safe_stem
+    safe_stem=$(_sanitize_temp_component "$archive_stem")
+    printf '%s/.archive_apps.%s.%s' "$dest" "$safe_stem" "$manifest_hash"
+}
+
+_ensure_archive_copy() {
+    local app="$1" versioned="$2" workdir="$3"
+    local workapp="$workdir/$versioned" total use_bar=0
+
+    mkdir -p "$workdir"
+
+    if [[ -e "$workapp" && ! -d "$workapp" ]]; then
+        rm_retry "$workapp"
+    fi
+
+    if [[ -d "$workapp" ]]; then
+        echo "  COPY: reusing preserved temp copy"
+        rsync -a --delete --extended-attributes "$app/" "$workapp/"
+        return 0
+    fi
+
     total=$(find "$app" -not -type d | wc -l | tr -d ' ')
     [[ -t 2 && $total -gt 0 ]] && use_bar=1
 
     if [[ $use_bar -eq 1 && "${cp_flags[*]}" != *c* ]]; then
-        { ditto -V "$app" "$tmpdir/$versioned"; } 2>&1 | _progress_bar_filter "COPY" "$total"
+        { ditto -V "$app" "$workapp"; } 2>&1 | _progress_bar_filter "COPY" "$total"
     else
-        cp "${cp_flags[@]}" "$app" "$tmpdir/$versioned"
+        cp "${cp_flags[@]}" "$app" "$workapp"
     fi
+}
+
+_archive_app_to_zip() {
+    local app="$1" versioned="$2" dest_zip="$3" manifest_hash="$4" archive_stem="$5"
+    local workdir total use_bar=0
+    workdir=$(_archive_workdir_path "$archive_stem" "$manifest_hash")
+
+    _ensure_archive_copy "$app" "$versioned" "$workdir"
+    total=$(find "$app" -not -type d | wc -l | tr -d ' ')
+    [[ -t 2 && $total -gt 0 ]] && use_bar=1
 
     if [[ $use_bar -eq 1 ]]; then
-        { (cd "$tmpdir" && ditto -V -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip"); } 2>&1 | \
+        { (cd "$workdir" && ditto -V -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip"); } 2>&1 | \
             _progress_bar_filter "ZIP " "$total"
     else
-        (cd "$tmpdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip")
+        (cd "$workdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip")
     fi
-
-    rm_retry "$tmpdir"
+    if [[ $keep_temp -eq 0 ]]; then
+        rm_retry "$workdir"
+    fi
 }
 
 _WFAIL_DST=""
@@ -934,6 +978,8 @@ for app in "${_apps[@]}"; do
 
     zipname="${name}.app@${mobile}${version}.zip"
     checksumname="${name}.app@${mobile}${version}.checksums.txt"
+    zipstem="${zipname%.zip}"
+    versioned="${name} ${version}.app"
     echo "ARCHIVING $idx/$total: $zipname"
     live_symlink_count=$(_count_live_symlinks "$app")
     live_external_symlinks=$(_collect_external_live_symlinks "$app")
@@ -955,6 +1001,7 @@ for app in "${_apps[@]}"; do
             fi
             live_checksums=$(_collect_app_manifest "$app" full)
             live_checksums_legacy=$(_collect_app_manifest "$app" legacy)
+            live_manifest_hash=$(_sha256_text "$live_checksums")
             if _verify_checksum_file_contents "$dest/$checksumname" "$live_checksums" "$live_checksums_legacy"; then
                 echo "  VERIFIED ✅: archived checksum matches current app"
             else
@@ -964,8 +1011,7 @@ for app in "${_apps[@]}"; do
                 case "$choice" in
                     o|O)
                         rm -f "$dest/$zipname"
-                        versioned="${name} ${version}.app"
-                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp" "$live_manifest_hash" "$zipstem"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         safe_write "$live_checksums" "$dest/$checksumname.tmp"
                         safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -974,8 +1020,7 @@ for app in "${_apps[@]}"; do
                         suffix=$(date +%Y%m%d_%H%M%S)
                         newzip="${name}.app@${mobile}${version}~${suffix}.zip"
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
-                        versioned="${name} ${version}.app"
-                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp" "$live_manifest_hash" "$zipstem"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         safe_write "$live_checksums" "$dest/$newcheck.tmp"
                         safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -1002,6 +1047,7 @@ for app in "${_apps[@]}"; do
                 continue
             fi
             live_checksums=$(_collect_app_manifest "$app" full)
+            live_manifest_hash=$(_sha256_text "$live_checksums")
             echo "  app: $(du -sh "$app" | cut -f1)"
             if [[ "$zip_checksums" == "$live_checksums" ]]; then
                 safe_write "$zip_checksums" "$dest/$checksumname.tmp"
@@ -1015,8 +1061,7 @@ for app in "${_apps[@]}"; do
                 case "$choice" in
                     o|O)
                         rm -f "$dest/$zipname"
-                        versioned="${name} ${version}.app"
-                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp" "$live_manifest_hash" "$zipstem"
                         mv "$dest/$zipname.tmp" "$dest/$zipname"
                         safe_write "$live_checksums" "$dest/$checksumname.tmp"
                         safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
@@ -1027,8 +1072,7 @@ for app in "${_apps[@]}"; do
                         suffix=$(date +%Y%m%d_%H%M%S)
                         newzip="${name}.app@${mobile}${version}~${suffix}.zip"
                         newcheck="${name}.app@${mobile}${version}~${suffix}.checksums.txt"
-                        versioned="${name} ${version}.app"
-                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp"
+                        _archive_app_to_zip "$app" "$versioned" "$dest/$newzip.tmp" "$live_manifest_hash" "$zipstem"
                         mv "$dest/$newzip.tmp" "$dest/$newzip"
                         safe_write "$live_checksums" "$dest/$newcheck.tmp"
                         safe_mv "$dest/$newcheck.tmp" "$dest/$newcheck"
@@ -1045,8 +1089,8 @@ for app in "${_apps[@]}"; do
     echo "  ARCHIVE: missing"
     echo "  app: $(du -sh "$app" | cut -f1)"
     live_checksums=$(_collect_app_manifest "$app" full)
-    versioned="${name} ${version}.app"
-    _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp"
+    live_manifest_hash=$(_sha256_text "$live_checksums")
+    _archive_app_to_zip "$app" "$versioned" "$dest/$zipname.tmp" "$live_manifest_hash" "$zipstem"
     mv "$dest/$zipname.tmp" "$dest/$zipname"
     echo "  ZIP+HASH: created"
     echo "  zip: $(du -sh "$dest/$zipname" | cut -f1)"
