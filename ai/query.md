@@ -311,3 +311,7 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › create a progressbar for the deletion after the copy+zip, too. On the network this takes a while.
 
+› what with the existing _progress_bar_filter and such methods?
+
+› Yes, deduplicate the bar render logic. While at it, add a time estimation.
+
