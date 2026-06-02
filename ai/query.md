@@ -434,3 +434,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › The `VERIFY` step (extra flag for zip verification) does not seem to use the up-to-date progress bar with eta and such.
 
+› after the initial copy+zip, it should delete the copy temp folder if the zip was validated, regardless of `--keep-temp` setting - that one only applies to the shutdown cleanup.
+
