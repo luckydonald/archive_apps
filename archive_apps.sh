@@ -262,9 +262,13 @@ _archive_app_to_zip() {
     else
         (cd "$workdir" && ditto -c -k --sequesterRsrc --keepParent "$versioned" "$dest_zip")
     fi
-    if [[ $keep_temp -eq 0 ]]; then
-        rm_retry "$workdir"
-    fi
+}
+
+_delete_validated_workdir() {
+    local archive_stem="$1" manifest_hash="$2"
+    local workdir
+    workdir=$(_archive_workdir_path "$archive_stem" "$manifest_hash")
+    [[ -d "$workdir" ]] && rm_retry "$workdir"
 }
 
 _WFAIL_DST=""
@@ -1145,6 +1149,7 @@ for app in "${_apps[@]}"; do
         fi
         if [[ "$zip_checksums" == "$live_checksums" ]]; then
             echo "  CREATED ✅: archived checksum matches app"
+            _delete_validated_workdir "$zipstem" "$live_manifest_hash"
         else
             echo "  MISMATCH ❌: archived checksum does not match original app"
         fi
