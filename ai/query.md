@@ -430,3 +430,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › what happened ai/errors/10.md ?
 
+› is that bug fixed?
+
