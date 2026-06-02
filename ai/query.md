@@ -317,3 +317,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › add `@ HH:MM:SS` (so the resulting time). If needed `@ HH:MM (+D day)`/`@ HH:MM (+D days)`.
 
+› The end delete (cleanup) shall just use a progress bar, too.
+
