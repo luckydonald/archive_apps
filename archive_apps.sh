@@ -63,7 +63,7 @@ cleanup() {
 trap cleanup EXIT
 
 rm_retry() {
-    local dir="$1" attempt total current path use_bar=0
+    local dir="$1" attempt total current path use_bar=0 start_ts
     for attempt in 1 2 3 4 5; do
         if [[ ! -e "$dir" ]]; then
             return 0
@@ -74,10 +74,11 @@ rm_retry() {
 
         if [[ $use_bar -eq 1 ]]; then
             current=0
+            start_ts=$(date +%s)
             while IFS= read -r path; do
                 rm -rf "$path"
                 current=$(( current + 1 ))
-                _render_progress_bar "DELETE" "$current" "$total"
+                _render_progress_bar "DELETE" "$current" "$total" "$start_ts"
             done < <(find "$dir" -depth -print 2>/dev/null)
             _clear_progress_bar
         else
@@ -91,9 +92,25 @@ rm_retry() {
     exit 1
 }
 
+_format_duration() {
+    local seconds="$1"
+    local hours minutes secs
+    if [[ ${seconds:-0} -lt 0 ]]; then
+        seconds=0
+    fi
+    hours=$(( seconds / 3600 ))
+    minutes=$(( (seconds % 3600) / 60 ))
+    secs=$(( seconds % 60 ))
+    if [[ $hours -gt 0 ]]; then
+        printf '%d:%02d:%02d' "$hours" "$minutes" "$secs"
+    else
+        printf '%02d:%02d' "$minutes" "$secs"
+    fi
+}
+
 _render_progress_bar() {
-    local label="$1" current="$2" total="$3"
-    local pct filled bar i
+    local label="$1" current="$2" total="$3" start_ts="${4:-0}"
+    local pct filled bar i now elapsed remaining eta
     if [[ ${total:-0} -le 0 ]]; then
         return 0
     fi
@@ -109,7 +126,18 @@ _render_progress_bar() {
     while [[ ${#bar} -lt 40 ]]; do
         bar="${bar} "
     done
-    printf '\r  %s [%s] %d/%d (%d%%)' "$label" "$bar" "$current" "$total" "$pct" > /dev/stderr
+    eta="--:--"
+    if [[ $start_ts -gt 0 ]]; then
+        now=$(date +%s)
+        elapsed=$(( now - start_ts ))
+        if [[ $current -gt 0 && $elapsed -gt 0 ]]; then
+            remaining=$(( (total - current) * elapsed / current ))
+            eta=$(_format_duration "$remaining")
+        elif [[ $current -ge $total ]]; then
+            eta="00:00"
+        fi
+    fi
+    printf '\r  %s [%s] %d/%d (%d%%, eta %s)' "$label" "$bar" "$current" "$total" "$pct" "$eta" > /dev/stderr
 }
 
 _clear_progress_bar() {
@@ -118,22 +146,20 @@ _clear_progress_bar() {
 
 _progress_bar_filter() {
     local label="$1" total="$2"
-    awk -v total="$total" -v label="$label" '
-        BEGIN { step = int(total/200); if (step < 1) step = 1 }
-        /^copying / {
-          n++
-          if (n % step == 0 || n == total) {
-            pct    = int(n * 100 / total)
-            filled = int(n * 40  / total)
-            bar    = ""; for (i=0; i<filled; i++) bar = bar "="
-            if (filled < 40) bar = bar ">"
-            while (length(bar) < 40) bar = bar " "
-            printf "\r  %s [%s] %d/%d (%d%%)", label, bar, n, total, pct > "/dev/stderr"
-            fflush("/dev/stderr")
-          }
-        }
-        END { printf "\r\033[K" > "/dev/stderr"; fflush("/dev/stderr") }
-    '
+    local line current=0 step start_ts
+    step=$(( total / 200 ))
+    [[ $step -lt 1 ]] && step=1
+    start_ts=$(date +%s)
+
+    while IFS= read -r line; do
+        [[ "$line" == copying\ * ]] || continue
+        current=$(( current + 1 ))
+        if (( current % step == 0 || current == total )); then
+            _render_progress_bar "$label" "$current" "$total" "$start_ts"
+        fi
+    done
+
+    _clear_progress_bar
 }
 
 _shuffle_array() {
