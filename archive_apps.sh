@@ -63,13 +63,57 @@ cleanup() {
 trap cleanup EXIT
 
 rm_retry() {
-    local dir="$1" attempt
+    local dir="$1" attempt total current path use_bar=0
     for attempt in 1 2 3 4 5; do
-        rm -rf "$dir" && return 0
+        if [[ ! -e "$dir" ]]; then
+            return 0
+        fi
+
+        total=$(find "$dir" -depth -print 2>/dev/null | wc -l | tr -d ' ')
+        [[ -t 2 && ${total:-0} -gt 0 ]] && use_bar=1 || use_bar=0
+
+        if [[ $use_bar -eq 1 ]]; then
+            current=0
+            while IFS= read -r path; do
+                rm -rf "$path"
+                current=$(( current + 1 ))
+                _render_progress_bar "DELETE" "$current" "$total"
+            done < <(find "$dir" -depth -print 2>/dev/null)
+            _clear_progress_bar
+        else
+            rm -rf "$dir"
+        fi
+
+        [[ ! -e "$dir" ]] && return 0
         sleep 1
     done
     echo "ERROR: failed to remove $dir after 5 attempts" >&2
     exit 1
+}
+
+_render_progress_bar() {
+    local label="$1" current="$2" total="$3"
+    local pct filled bar i
+    if [[ ${total:-0} -le 0 ]]; then
+        return 0
+    fi
+    pct=$(( current * 100 / total ))
+    filled=$(( current * 40 / total ))
+    bar=""
+    for ((i=0; i<filled; i++)); do
+        bar="${bar}="
+    done
+    if [[ $filled -lt 40 ]]; then
+        bar="${bar}>"
+    fi
+    while [[ ${#bar} -lt 40 ]]; do
+        bar="${bar} "
+    done
+    printf '\r  %s [%s] %d/%d (%d%%)' "$label" "$bar" "$current" "$total" "$pct" > /dev/stderr
+}
+
+_clear_progress_bar() {
+    printf '\r\033[K' > /dev/stderr
 }
 
 _progress_bar_filter() {
