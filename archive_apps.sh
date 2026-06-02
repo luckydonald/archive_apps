@@ -579,7 +579,7 @@ checksums_from_zip() {
         return 1
     fi
     python3 - "$zip" "$mode" <<'PYEOF'
-import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os, stat
+import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os, stat, time
 
 zpath = sys.argv[1]
 manifest_mode = sys.argv[2]
@@ -669,11 +669,49 @@ try:
         _total = len(entries)
         _tty   = os.isatty(sys.stderr.fileno())
         _step  = max(1, _total // 200)
+        _start = time.time()
+
+        def _fmt_duration(seconds):
+            seconds = max(0, int(seconds))
+            hours, rem = divmod(seconds, 3600)
+            minutes, secs = divmod(rem, 60)
+            if hours > 0:
+                return f"{hours:d}:{minutes:02d}:{secs:02d}"
+            return f"{minutes:02d}:{secs:02d}"
+
+        def _fmt_eta_target(now_ts, remaining):
+            remaining = max(0, int(remaining))
+            target_ts = now_ts + remaining
+            day_offset = remaining // 86400
+            time_fmt = "%H:%M:%S" if day_offset == 0 else "%H:%M"
+            day_label = ""
+            if day_offset == 1:
+                day_label = " (+1 day)"
+            elif day_offset > 1:
+                day_label = f" (+{day_offset} days)"
+            return time.strftime(time_fmt, time.localtime(target_ts)) + day_label
+
         def _bar(i):
-            pct    = i * 100 // _total if _total else 100
-            filled = i * 40  // _total if _total else 40
-            b = '=' * filled + ('>' if filled < 40 else '') + ' ' * (39 - filled)
-            sys.stderr.write(f'\r  [{b}] {i}/{_total} ({pct}%)')
+            pct = i * 100 // _total if _total else 100
+            filled = i * 40 // _total if _total else 40
+            bar = '=' * filled
+            if filled < 40:
+                bar += '>'
+            bar = bar.ljust(40)
+            eta = "--:--"
+            eta_target = "--:--:--"
+            now_ts = int(time.time())
+            elapsed = now_ts - int(_start)
+            if i > 0 and elapsed > 0 and _total:
+                remaining = (_total - i) * elapsed // i
+                eta = _fmt_duration(remaining)
+                eta_target = _fmt_eta_target(now_ts, remaining)
+            elif i >= _total:
+                eta = "00:00"
+                eta_target = _fmt_eta_target(now_ts, 0)
+            sys.stderr.write(
+                f'\r  VERIFY [{bar}] {i}/{_total} ({pct}%, eta {eta} @ {eta_target})'
+            )
             sys.stderr.flush()
         results    = []
         unreadable = []
