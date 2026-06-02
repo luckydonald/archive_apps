@@ -394,3 +394,35 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 > ```
 >
 
+> When a preserved temp copy exists but differs from the live app, how should resume behave?
+> - Selective repair (Recommended)
+> - Any mismatch => rebuild
+> - Trust size+mtime only
+> → {"answers":{"repair_mode":{"answers":["Selective repair (Recommended)","user_note: can't we use rsync to do that whole logic for us?"]}}}
+> ```json
+> {
+>   "questions": [
+>     {
+>       "header": "Repair Mode",
+>       "id": "repair_mode",
+>       "question": "When a preserved temp copy exists but differs from the live app, how should resume behave?",
+>       "options": [
+>         {
+>           "label": "Selective repair (Recommended)",
+>           "description": "Compare temp copy against the live app and only recopy missing, mismatched, or extra paths before zipping."
+>         },
+>         {
+>           "label": "Any mismatch => rebuild",
+>           "description": "Reuse only a fully matching temp copy; otherwise delete it and copy the whole app again."
+>         },
+>         {
+>           "label": "Trust size+mtime only",
+>           "description": "Repair decisions use metadata heuristics instead of checksums, which is faster but less reliable for wrong files."
+>         }
+>       ]
+>     }
+>   ]
+> }
+> ```
+> 
+
