@@ -319,3 +319,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › The end delete (cleanup) shall just use a progress bar, too.
 
+› have the cleanup at the end be skippable with a flag. This is to facilitate the next change: Do not copy already copied temp stuff (probably the random hash part must be an actual hash to ease finding the correct one). So the COPY step shall be efficient and reuse aborted copies from before - but also fix wrong files etc.
+
