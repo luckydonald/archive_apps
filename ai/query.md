@@ -319,5 +319,78 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › The end delete (cleanup) shall just use a progress bar, too.
 
-› have the cleanup at the end be skippable with a flag. This is to facilitate the next change: Do not copy already copied temp stuff (probably the random hash part must be an actual hash to ease finding the correct one). So the COPY step shall be efficient and reuse aborted copies from before - but also fix wrong files etc.
+› /plan have the cleanup at the end be skippable with a flag. This is to facilitate the next change: Do not copy already copied temp stuff (probably the random hash part must be an actual hash to ease finding the correct one). So the COPY step shall be efficient and reuse aborted copies from before - but also fix wrong files etc.
+
+> ```text
+>   Question 1/2 (2 unanswered)
+>   How should the end-of-run cleanup toggle be exposed?
+>
+>   › 1. --keep-temp (Recommended)  Preserve archive work dirs and temp artifacts explicitly when requested; default behavior stays unchanged.
+>     2. --no-cleanup               Same behavior, but framed as disabling cleanup rather than keeping temp state.
+>     3. Always preserve            Change the default so temp state is kept unless a cleanup flag is passed.
+>     4. None of the above          Optionally, add details in notes (tab).
+>
+>   Question 2/2 (1 unanswered)
+>   What should define the stable temp work directory used for resumable copy?
+>
+>     1. Path+version hash (Recommended)  Hash source app path plus derived archive stem/version; stable across runs, cheap to compute, and good enough to find the right aborted copy.
+>   › 2. Content hash                     Hash app contents first so the temp dir identity tracks exact source bytes, but this adds a full pre-scan before copy.
+>     3. Plain readable name              Use a human-readable path based on app name/version with no hash suffix, which is easier to inspect but more collision-prone.
+>     4. None of the above                Optionally, add details in notes (tab).
+> ```
+> How should the end-of-run cleanup toggle be exposed?
+> - --keep-temp (Recommended)
+> - --no-cleanup
+> - Always preserve
+>
+> What should define the stable temp work directory used for resumable copy?
+> - Path+version hash (Recommended)
+> - Content hash
+> - Plain readable name
+> → {"answers":{"temp_identity":{"answers":["Content hash"]},"cleanup_flag":{"answers":["--keep-temp (Recommended)"]}}}
+> ```json
+> {
+>   "questions": [
+>     {
+>       "header": "Cleanup Flag",
+>       "id": "cleanup_flag",
+>       "question": "How should the end-of-run cleanup toggle be exposed?",
+>       "options": [
+>         {
+>           "label": "--keep-temp (Recommended)",
+>           "description": "Preserve archive work dirs and temp artifacts explicitly when requested; default behavior stays unchanged."
+>         },
+>         {
+>           "label": "--no-cleanup",
+>           "description": "Same behavior, but framed as disabling cleanup rather than keeping temp state."
+>         },
+>         {
+>           "label": "Always preserve",
+>           "description": "Change the default so temp state is kept unless a cleanup flag is passed."
+>         }
+>       ]
+>     },
+>     {
+>       "header": "Temp Identity",
+>       "id": "temp_identity",
+>       "question": "What should define the stable temp work directory used for resumable copy?",
+>       "options": [
+>         {
+>           "label": "Path+version hash (Recommended)",
+>           "description": "Hash source app path plus derived archive stem/version; stable across runs, cheap to compute, and good enough to find the right aborted copy."
+>         },
+>         {
+>           "label": "Content hash",
+>           "description": "Hash app contents first so the temp dir identity tracks exact source bytes, but this adds a full pre-scan before copy."
+>         },
+>         {
+>           "label": "Plain readable name",
+>           "description": "Use a human-readable path based on app name/version with no hash suffix, which is easier to inspect but more collision-prone."
+>         }
+>       ]
+>     }
+>   ]
+> }
+> ```
+>
 
