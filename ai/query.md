@@ -309,3 +309,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › For some reason the copy and zip step always go to 200% - maybe a *2 needs to put on the total in those two cases?
 
+› create a progressbar for the deletion after the copy+zip, too. On the network this takes a while.
+
