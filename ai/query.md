@@ -436,3 +436,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › after the initial copy+zip, it should delete the copy temp folder if the zip was validated, regardless of `--keep-temp` setting - that one only applies to the shutdown cleanup.
 
+› when running the VERIFY branch, verification errors should be printed as currently, but unless `--verify-abort` is set, it shall not abort the run there - instead write a proper summary to list those.
+
