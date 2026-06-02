@@ -432,3 +432,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › is that bug fixed?
 
+› The `VERIFY` step (extra flag for zip verification) does not seem to use the up-to-date progress bar with eta and such.
+
