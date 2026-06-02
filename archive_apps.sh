@@ -108,9 +108,31 @@ _format_duration() {
     fi
 }
 
+_format_eta_target() {
+    local now_ts="$1" remaining="$2"
+    local target_ts day_offset day_label time_fmt
+    if [[ ${remaining:-0} -lt 0 ]]; then
+        remaining=0
+    fi
+    target_ts=$(( now_ts + remaining ))
+    day_offset=$(( remaining / 86400 ))
+    time_fmt="+%H:%M:%S"
+    if [[ $day_offset -gt 0 ]]; then
+        time_fmt="+%H:%M"
+    fi
+    if [[ $day_offset -eq 1 ]]; then
+        day_label=" (+1 day)"
+    elif [[ $day_offset -gt 1 ]]; then
+        day_label=" (+${day_offset} days)"
+    else
+        day_label=""
+    fi
+    printf '%s%s' "$(date -r "$target_ts" "$time_fmt")" "$day_label"
+}
+
 _render_progress_bar() {
     local label="$1" current="$2" total="$3" start_ts="${4:-0}"
-    local pct filled bar i now elapsed remaining eta
+    local pct filled bar i now elapsed remaining eta eta_target
     if [[ ${total:-0} -le 0 ]]; then
         return 0
     fi
@@ -127,17 +149,20 @@ _render_progress_bar() {
         bar="${bar} "
     done
     eta="--:--"
+    eta_target="--:--:--"
     if [[ $start_ts -gt 0 ]]; then
         now=$(date +%s)
         elapsed=$(( now - start_ts ))
         if [[ $current -gt 0 && $elapsed -gt 0 ]]; then
             remaining=$(( (total - current) * elapsed / current ))
             eta=$(_format_duration "$remaining")
+            eta_target=$(_format_eta_target "$now" "$remaining")
         elif [[ $current -ge $total ]]; then
             eta="00:00"
+            eta_target=$(_format_eta_target "$now" 0)
         fi
     fi
-    printf '\r  %s [%s] %d/%d (%d%%, eta %s)' "$label" "$bar" "$current" "$total" "$pct" "$eta" > /dev/stderr
+    printf '\r  %s [%s] %d/%d (%d%%, eta %s @ %s)' "$label" "$bar" "$current" "$total" "$pct" "$eta" "$eta_target" > /dev/stderr
 }
 
 _clear_progress_bar() {
