@@ -428,3 +428,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › Implement the plan.
 
+› what happened ai/errors/10.md ?
+
