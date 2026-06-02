@@ -315,3 +315,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › Yes, deduplicate the bar render logic. While at it, add a time estimation.
 
+› add `@ HH:MM:SS` (so the resulting time). If needed `@ HH:MM (+D day)`/`@ HH:MM (+D days)`.
+
