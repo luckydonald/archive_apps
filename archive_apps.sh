@@ -5,6 +5,8 @@ verify_mode="none"
 dest_arg=""
 external_symlink_policy="archive"
 external_symlink_summary=()
+verify_abort=0
+verify_failure_summary=()
 keep_temp=0
 
 for arg in "$@"; do
@@ -14,6 +16,7 @@ for arg in "$@"; do
             echo "  --verify-zips     extract and verify all zips against their checksum files"
             echo "  --verify-new      verify only zips/checksums not yet in the checksum index"
             echo "  --verify-changed  verify zips whose index hash differs from current file"
+            echo "  --verify-abort    stop immediately on the first verification failure"
             echo "  --keep-temp       preserve temp workdirs and leftover .tmp files for reuse"
             echo "  --external-symlink-policy=archive|skip|abort"
             echo "                    handling for symlinks that resolve outside the app bundle"
@@ -23,6 +26,7 @@ for arg in "$@"; do
         --verify-zips)    verify_mode="zips" ;;
         --verify-new)     verify_mode="new" ;;
         --verify-changed) verify_mode="changed" ;;
+        --verify-abort)   verify_abort=1 ;;
         --keep-temp)      keep_temp=1 ;;
         --external-symlink-policy=archive|skip|abort)
             external_symlink_policy="${arg#*=}" ;;
@@ -526,6 +530,23 @@ _print_external_symlink_summary() {
     done
 }
 
+_record_verify_failure() {
+    local zipname="$1" reason="$2"
+    verify_failure_summary+=("$zipname"$'\t'"$reason")
+}
+
+_print_verify_failure_summary() {
+    local line zipname reason
+    [[ ${#verify_failure_summary[@]} -gt 0 ]] || return 0
+    echo
+    echo "Verification failure summary:"
+    for line in "${verify_failure_summary[@]}"; do
+        IFS=$'\t' read -r zipname reason <<< "$line"
+        echo "  $zipname"
+        echo "    $reason"
+    done
+}
+
 _verify_checksum_file_contents() {
     local checksumfile="$1" actual_full="$2" actual_legacy="$3"
     local existing
@@ -967,7 +988,15 @@ if [[ "$verify_mode" != "none" ]]; then
 
         if [[ -f "$checksumfile" ]]; then
             actual_legacy=$(checksums_from_zip "$zip" legacy)
-            _verify_checksum_file_contents "$checksumfile" "$actual" "$actual_legacy"
+            if ! _verify_checksum_file_contents "$checksumfile" "$actual" "$actual_legacy"; then
+                _record_verify_failure "$zipname" "checksum file differs"
+                if [[ $verify_abort -eq 1 ]]; then
+                    echo "  ABORTED ❌: verification failed (--verify-abort)"
+                    _print_verify_failure_summary
+                    exit 1
+                fi
+                continue
+            fi
         else
             echo "  CHECKSUM: missing, creating…"
             safe_write "$actual" "${checksumfile}.tmp"
@@ -988,6 +1017,7 @@ if [[ "$verify_mode" != "none" ]]; then
         echo "  WARN: sort of index failed; writing unsorted" >&2
     safe_mv "$index_tmp" "$index_file"
     echo "INDEX: written → $(basename "$index_file")"
+    _print_verify_failure_summary
 fi
 
 _apps=(); while IFS= read -r _l; do _apps+=("$_l"); done < <(find /Applications -maxdepth 2 -name "*.app" -type d)
