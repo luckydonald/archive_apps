@@ -197,6 +197,31 @@ _progress_bar_filter() {
     _clear_progress_bar
 }
 
+_rsync_progress_bar_filter() {
+    local label="$1" total="$2"
+    local line remaining seen current=0 start_ts
+    start_ts=$(date +%s)
+
+    while IFS= read -r line; do
+        if [[ "$line" =~ to-check=([0-9]+)/([0-9]+) ]]; then
+            remaining="${BASH_REMATCH[1]}"
+            seen="${BASH_REMATCH[2]}"
+            current=$(( seen - remaining ))
+            if [[ $current -lt 0 ]]; then
+                current=0
+            elif [[ $current -gt $total ]]; then
+                current="$total"
+            fi
+            _render_progress_bar "$label" "$current" "$total" "$start_ts"
+        fi
+    done
+
+    if [[ $total -gt 0 ]]; then
+        _render_progress_bar "$label" "$total" "$total" "$start_ts"
+    fi
+    _clear_progress_bar
+}
+
 _shuffle_array() {
     local _arr_name="$1"
     local i j tmp_i tmp_j len
@@ -239,6 +264,21 @@ _copy_archive_app_fresh() {
     fi
 }
 
+_repair_archive_app_copy() {
+    local app="$1" workapp="$2"
+    local total use_bar=0
+
+    total=$(find "$app" -not -type d | wc -l | tr -d ' ')
+    [[ -t 2 && $total -gt 0 ]] && use_bar=1
+
+    if [[ $use_bar -eq 1 ]]; then
+        rsync -a --delete --extended-attributes --progress "$app/" "$workapp/" 2>&1 | tr '\r' '\n' | \
+            _rsync_progress_bar_filter "COPY" "$total"
+    else
+        rsync -a --delete --extended-attributes "$app/" "$workapp/"
+    fi
+}
+
 _ensure_archive_copy() {
     local app="$1" versioned="$2" workdir="$3"
     local workapp="$workdir/$versioned"
@@ -251,7 +291,7 @@ _ensure_archive_copy() {
 
     if [[ -d "$workapp" ]]; then
         echo "  COPY: reusing preserved temp copy"
-        if rsync -a --delete --extended-attributes "$app/" "$workapp/"; then
+        if _repair_archive_app_copy "$app" "$workapp"; then
             return 0
         fi
         echo "  COPY WARN: preserved temp copy repair failed; recreating"
