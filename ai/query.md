@@ -442,3 +442,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › _COPY: reusing preserved temp copy_ needs a progress bar too.
 
+› Uh, the progressbar is running backwards? @ai/errors/12.md
+

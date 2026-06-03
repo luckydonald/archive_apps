@@ -199,26 +199,20 @@ _progress_bar_filter() {
 
 _rsync_progress_bar_filter() {
     local label="$1" total="$2"
-    local line remaining seen current=0 start_ts
+    local line checked current=0 start_ts
     start_ts=$(date +%s)
 
     while IFS= read -r line; do
         if [[ "$line" =~ to-check=([0-9]+)/([0-9]+) ]]; then
-            remaining="${BASH_REMATCH[1]}"
-            seen="${BASH_REMATCH[2]}"
-            current=$(( seen - remaining ))
-            if [[ $current -lt 0 ]]; then
-                current=0
-            elif [[ $current -gt $total ]]; then
+            checked="${BASH_REMATCH[1]}"
+            current="$checked"
+            if [[ $current -gt $total ]]; then
                 current="$total"
             fi
             _render_progress_bar "$label" "$current" "$total" "$start_ts"
         fi
     done
 
-    if [[ $total -gt 0 ]]; then
-        _render_progress_bar "$label" "$total" "$total" "$start_ts"
-    fi
     _clear_progress_bar
 }
 
