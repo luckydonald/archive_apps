@@ -225,21 +225,9 @@ _archive_workdir_path() {
     printf '%s/.archive_apps.%s.%s' "$dest" "$safe_stem" "$manifest_hash"
 }
 
-_ensure_archive_copy() {
-    local app="$1" versioned="$2" workdir="$3"
-    local workapp="$workdir/$versioned" total use_bar=0
-
-    mkdir -p "$workdir"
-
-    if [[ -e "$workapp" && ! -d "$workapp" ]]; then
-        rm_retry "$workapp"
-    fi
-
-    if [[ -d "$workapp" ]]; then
-        echo "  COPY: reusing preserved temp copy"
-        rsync -a --delete --extended-attributes "$app/" "$workapp/"
-        return 0
-    fi
+_copy_archive_app_fresh() {
+    local app="$1" workapp="$2"
+    local total use_bar=0
 
     total=$(find "$app" -not -type d | wc -l | tr -d ' ')
     [[ -t 2 && $total -gt 0 ]] && use_bar=1
@@ -249,6 +237,28 @@ _ensure_archive_copy() {
     else
         cp "${cp_flags[@]}" "$app" "$workapp"
     fi
+}
+
+_ensure_archive_copy() {
+    local app="$1" versioned="$2" workdir="$3"
+    local workapp="$workdir/$versioned"
+
+    mkdir -p "$workdir"
+
+    if [[ -e "$workapp" && ! -d "$workapp" ]]; then
+        rm_retry "$workapp"
+    fi
+
+    if [[ -d "$workapp" ]]; then
+        echo "  COPY: reusing preserved temp copy"
+        if rsync -a --delete --extended-attributes "$app/" "$workapp/"; then
+            return 0
+        fi
+        echo "  COPY WARN: preserved temp copy repair failed; recreating"
+        rm_retry "$workapp"
+    fi
+
+    _copy_archive_app_fresh "$app" "$workapp"
 }
 
 _archive_app_to_zip() {
