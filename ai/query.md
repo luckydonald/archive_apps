@@ -440,3 +440,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › Check @ai/errors/11.md
 
+› _COPY: reusing preserved temp copy_ needs a progress bar too.
+
