@@ -16,9 +16,12 @@ DEFAULT_PREFIX = "⩼"
 
 # Single-command prompts we never want to log: internal tooling invocations
 # and the most common "please commit now" reminders.
+# Claude uses /skill-name, Codex $skill-name.
 SKIP_PROMPTS = {
     "/committing-with-lplp-style",
+    "$committing-with-lplp-style",
     "/rebase-ai-prompt-commits",
+    "$rebase-ai-prompt-commits",
     "/rename",
     "commit", "Commit",
     "yes commit", "commit please", "commit pls", "commit plz",
