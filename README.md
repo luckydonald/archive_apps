@@ -22,7 +22,10 @@ This history is intentionally rooted at `empty/init` from `https://github.com/Em
           * [Hosted Git](#hosted-git)
   * [Setup: b) Rebase Onto `base/base`](#setup-b-rebase-onto-basebase)
   * [Setup: c) Merge `base/base`](#setup-c-merge-basebase)
+    * [All code for c) as a single copy pastable one:](#all-code-for-c-as-a-single-copy-pastable-one)
   * [After Adopting The Base](#after-adopting-the-base)
+    * [Git LFS](#git-lfs)
+    * [Monorepo subfolders: per-subfolder `.claude/`](#monorepo-subfolders-per-subfolder-claude)
 <!-- TOC -->
 
 # Add This To Your Repo
