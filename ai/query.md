@@ -449,3 +449,5 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 ❯ It seems to be like that for all @mobile apps.
 
 ❯ Nevermind, all appstore apps?
+❯ Looking good across the first 20. It however still failed for `Velja.app@3.1.1.zip`.
+
