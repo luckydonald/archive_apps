@@ -654,6 +654,17 @@ import sys, zipfile, hashlib, locale, subprocess, struct, zlib as _zlib, os, sta
 zpath = sys.argv[1]
 manifest_mode = sys.argv[2]
 
+def _fix_zip_name(info):
+    # ditto stores filenames as UTF-8 bytes without the ZIP UTF-8 flag (bit 11),
+    # so Python's zipfile decodes them as cp437. Re-encode to get the raw bytes
+    # and decode as UTF-8 to recover the original filename.
+    if info.flag_bits & 0x800:
+        return info.filename
+    try:
+        return info.filename.encode('cp437').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return info.filename
+
 def _find_zip64_offset(fp, info):
     # Python bug: when only header_offset needs ZIP64 (file/compress sizes < 4 GB),
     # Python misassigns the 8-byte ZIP64 offset field to file_size and leaves
@@ -723,8 +734,9 @@ def _hash_via_unzip(entry_name):
 
 try:
     with zipfile.ZipFile(zpath) as z:
+        all_entries = [(info, _fix_zip_name(info)) for info in z.infolist()]
         app_prefix = None
-        for name in z.namelist():
+        for _info, name in all_entries:
             parts = name.split('/')
             if not name.endswith('/') and '__MACOSX' not in name \
                and len(parts) > 1 and parts[0].endswith('.app'):
@@ -732,10 +744,10 @@ try:
                 break
         if app_prefix is None:
             sys.exit(1)
-        entries = [info for info in z.infolist()
-                   if not info.filename.endswith('/')
-                   and '__MACOSX' not in info.filename
-                   and info.filename.startswith(app_prefix)]
+        entries = [(info, name) for info, name in all_entries
+                   if not name.endswith('/')
+                   and '__MACOSX' not in name
+                   and name.startswith(app_prefix)]
         _total = len(entries)
         _tty   = os.isatty(sys.stderr.fileno())
         _step  = max(1, _total // 200)
@@ -785,8 +797,7 @@ try:
             sys.stderr.flush()
         results    = []
         unreadable = []
-        for _i, info in enumerate(entries, 1):
-            name = info.filename
+        for _i, (info, name) in enumerate(entries, 1):
             rel  = name[len(app_prefix):]
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             is_link = stat.S_IFMT(unix_mode) == stat.S_IFLNK
@@ -815,7 +826,7 @@ try:
                         except Exception:
                             pass
                     if h is None:
-                        h = _hash_via_unzip(name)
+                        h = _hash_via_unzip(info.filename)
                 if h is not None:
                     results.append(h + '  ' + rel)
                 else:
