@@ -424,7 +424,7 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 >   ]
 > }
 > ```
-> 
+>
 
 › Implement the plan.
 
@@ -444,3 +444,8 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 
 › Uh, the progressbar is running backwards? @ai/errors/12.md
 
+❯ /plan @ai/errors/13.md
+
+❯ It seems to be like that for all @mobile apps.
+
+❯ Nevermind, all appstore apps?
