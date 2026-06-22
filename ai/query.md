@@ -504,3 +504,5 @@ That makes me wonder, if we can actually re-enable using a local disk cache, lik
 
 ❯ Document the command (`README.md` etc.) but don't mention the drive, just `/Volumes/…/data` or similar.
 
+❯ The `--local-cache` files can be deleted after transfering to the destination (use _move_ instead of _copy_?) Does the move/{copy+delete} have a progress bar already? Add otherwise.
+

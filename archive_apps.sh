@@ -20,8 +20,8 @@ for arg in "$@"; do
             echo "  --verify-abort    stop immediately on the first verification failure"
             echo "  --keep-temp       preserve temp workdirs and leftover .tmp files for reuse"
             echo "  --local-cache[=path]"
-            echo "                    stage new zips on local disk before copying to destination;"
-            echo "                    retains a local copy alongside the primary archive"
+            echo "                    stage new zips on local disk, then move to destination;"
+            echo "                    local temp is deleted after transfer (no copy retained)"
             echo "                    path defaults to /Users/Shared/App Versions"
             echo "                    magic values: default (same as omitting path), none (disable)"
             echo "  --external-symlink-policy=archive|skip|abort"
@@ -236,6 +236,19 @@ _rsync_progress_bar_filter() {
     _clear_progress_bar
 }
 
+_rsync_file_progress_bar_filter() {
+    local label="$1"
+    local line pct start_ts
+    start_ts=$(date +%s)
+    while IFS= read -r line; do
+        if [[ "$line" =~ ([0-9]+)% ]]; then
+            pct="${BASH_REMATCH[1]}"
+            _render_progress_bar "$label" "$pct" 100 "$start_ts"
+        fi
+    done
+    _clear_progress_bar
+}
+
 _shuffle_array() {
     local _arr_name="$1"
     local i j tmp_i tmp_j len
@@ -339,37 +352,34 @@ _delete_validated_workdir() {
     [[ -d "$workdir" ]] && rm_retry "$workdir"
 }
 
-# Create a zip in local_cache (if set) or dest, then move to its final name in
-# dest and (if local_cache is set) retain a copy there too.
+# Create a zip in local_cache (if set) or dest, then move it to dest.
+# With local_cache: rsync the finished .tmp to the destination with a progress bar,
+# then delete the local .tmp (no local copy is retained).
 _archive_and_store_zip() {
     local app="$1" versioned="$2" zipname="$3" manifest_hash="$4" archive_stem="$5"
     local staging="${local_cache:-$dest}"
     _archive_app_to_zip "$app" "$versioned" "$staging/$zipname.tmp" "$manifest_hash" "$archive_stem"
     if [[ -n "$local_cache" ]]; then
-        mv "$local_cache/$zipname.tmp" "$local_cache/$zipname"
-        cp "$local_cache/$zipname" "$dest/$zipname.tmp"
+        rsync --progress "$local_cache/$zipname.tmp" "$dest/$zipname.tmp" 2>&1 | tr '\r' '\n' | \
+            _rsync_file_progress_bar_filter "SEND"
         mv "$dest/$zipname.tmp" "$dest/$zipname"
+        rm -f "$local_cache/$zipname.tmp"
     else
         mv "$dest/$zipname.tmp" "$dest/$zipname"
     fi
 }
 
-# Write a checksum file to dest and, if local_cache is set, there too.
+# Write a checksum file to dest.
 _write_checksums() {
     local content="$1" checksumname="$2"
     safe_write "$content" "$dest/$checksumname.tmp"
     safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
-    if [[ -n "$local_cache" ]]; then
-        safe_write "$content" "$local_cache/$checksumname.tmp"
-        safe_mv "$local_cache/$checksumname.tmp" "$local_cache/$checksumname"
-    fi
 }
 
-# Remove a zip from dest and, if a local_cache copy exists, from there too.
+# Remove a zip from dest.
 _remove_zip() {
     local zipname="$1"
     rm -f "$dest/$zipname"
-    [[ -n "$local_cache" ]] && rm -f "$local_cache/$zipname" || true
 }
 
 _WFAIL_DST=""

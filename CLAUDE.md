@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Archive to a custom destination
 ./archive_apps.sh /path/to/destination
 
-# Stage zips on fast local disk, then copy to destination; local copy is retained
+# Stage zips on fast local disk, then move to destination (local temp deleted after transfer)
 ./archive_apps.sh --local-cache /Volumes/…/data
 
 # --local-cache without a value defaults to /Users/Shared/App Versions
