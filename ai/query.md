@@ -451,3 +451,54 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 ❯ Nevermind, all appstore apps?
 ❯ Looking good across the first 20. It however still failed for `Velja.app@3.1.1.zip`.
 
+❯ Task Notification:
+> - Task `b5dyyqcfr` <kbd>failed</kbd>
+> - Tool `toolu_01TEvdKNyVJ84CmhaytEZopZ`
+> - > Background command "End-to-end manifest comparison for Velja.app" failed with exit code 1
+> - [Query (`0` chars, `0 B`)](agents/001.b5dyyqcfr/prompt.md)
+> - [Answer (`0` chars, `0 B`)](agents/001.b5dyyqcfr/result.md)
+> - [Raw log (`26915` chars, `26.5 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/5a3cfe6e-8819-4251-a731-0ed779ed8bc4/tasks/b5dyyqcfr.output)
+
+❯ stop that background run you accidetially triggered, it's still ongoing?!? I can see it spamming `/Users/Shared/App Version` with zip files.
+
+❯ document your learnings.
+
+❯ It wrote the files to `/Users/Shared/App Versions` now, and managed to shove about `28 GB` worth of zip files in there before running out of disk space.
+That makes me wonder, if we can actually re-enable using a local disk cache, like `--local-cache="/Users/Shared/App Versions"` with the value being optional, so just `--local-cache` would mean the same, but omitting would mean to not use the cache and continue remotely on the NAS as before. Also allow the magic values `--local-cache="default"` (same) and `--local-cache="none"` (same as omitting).
+
+> What should happen when the local cache already has a verified zip+checksum for an app — should the NAS destination still be updated/checked, or is the local hit enough to consider the app done for that run?
+> - Local hit = done
+> - Local hit → also sync to NAS
+> - Local is temp only
+> → Local is temp only
+> ```json
+> {
+>   "questions": [
+>     {
+>       "question": "What should happen when the local cache already has a verified zip+checksum for an app — should the NAS destination still be updated/checked, or is the local hit enough to consider the app done for that run?",
+>       "header": "Cache hit behavior",
+>       "options": [
+>         {
+>           "label": "Local hit = done",
+>           "description": "If local cache has a verified zip+checksum matching the live app, skip the NAS entirely for that app. NAS is not touched."
+>         },
+>         {
+>           "label": "Local hit → also sync to NAS",
+>           "description": "If local cache verifies, copy the zip+checksum to NAS too (if not already there), then move on. NAS stays a full mirror."
+>         },
+>         {
+>           "label": "Local is temp only",
+>           "description": "Local cache is only used as a fast staging area for the temp copy and zip creation. Final zips always go to NAS; local copy is kept as a bonus side-effect."
+>         }
+>       ],
+>       "multiSelect": false
+>     }
+>   ],
+>   "answers": {
+>     "What should happen when the local cache already has a verified zip+checksum for an app — should the NAS destination still be updated/checked, or is the local hit enough to consider the app done for that run?": "Local is temp only"
+>   },
+>   "annotations": {}
+> }
+> ```
+> 
+
