@@ -206,7 +206,7 @@ def _commit(paths: list[str], msg: str) -> None:
             subprocess.run(["git", "add", "--", p], capture_output=True)
         # Deleted paths are already staged by _git_rm; no add needed.
     msg = base_ai_commit_subject(msg)
-    subprocess.run(["git", "commit", "--only", *paths, "-m", msg], capture_output=True)
+    subprocess.run(["git", "commit", "--no-verify", "--only", *paths, "-m", msg], capture_output=True)
 
 
 def _git_rm(path: str) -> None:

@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/°base/ai/settings/sync.py\" --apply",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/°base/ai/settings/sync.py\"",
             "statusMessage": "Syncing AI tool settings"
           },
           {

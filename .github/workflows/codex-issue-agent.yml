@@ -1,0 +1,174 @@
+name: Codex Issue Agent
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  codex:
+    name: Handle @codex issue request
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    if: >-
+      (
+        github.event_name == 'issues' &&
+        contains(format('{0}', github.event.issue.body), '@codex')
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        !github.event.issue.pull_request &&
+        contains(format('{0}', github.event.comment.body), '@codex')
+      )
+    steps:
+      - name: Build issue prompt
+        id: issue_context
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            const issueBody = issue.body || "";
+            const commentBody = comment?.body || "";
+            const commentIsOnlyTrigger =
+              Boolean(comment) && commentBody.trim().toLowerCase() === "@codex";
+
+            const requestBody =
+              comment && !commentIsOnlyTrigger
+                ? commentBody
+                : `# ${issue.title}\n\n${issueBody}`;
+
+            const triggerSource = comment
+              ? `issue comment ${comment.html_url}`
+              : `issue body ${issue.html_url}`;
+
+            const prompt = [
+              `You are working on ${context.repo.owner}/${context.repo.repo} issue #${issue.number}.`,
+              `The request was triggered from ${triggerSource}.`,
+              "",
+              "If the triggering comment is only @codex, address the issue title and body instead of treating the comment as the full request.",
+              "Make the smallest useful change for the issue. Run relevant tests or checks when practical.",
+              "Do not create a pull request yourself. The workflow will commit any file changes and open a pull request after you finish.",
+              "",
+              "Issue title:",
+              issue.title,
+              "",
+              "Issue body:",
+              issueBody || "(empty)",
+              "",
+              "User request to act on:",
+              requestBody || "(empty)"
+            ].join("\n");
+
+            core.setOutput("issue_number", String(issue.number));
+            core.setOutput("issue_url", issue.html_url);
+            core.setOutput("prompt", prompt);
+
+      - name: Report disabled Codex integration
+        if: env.OPENAI_API_KEY == ''
+        uses: actions/github-script@v7
+        env:
+          ISSUE_NUMBER: ${{ steps.issue_context.outputs.issue_number }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.ISSUE_NUMBER),
+              body: "Codex issue handling is disabled for this repository because the `OPENAI_API_KEY` Actions secret is not set."
+            });
+
+      - name: Check out default branch
+        if: env.OPENAI_API_KEY != ''
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+
+      - name: Create working branch
+        if: env.OPENAI_API_KEY != ''
+        id: branch
+        env:
+          ISSUE_NUMBER: ${{ steps.issue_context.outputs.issue_number }}
+        run: |
+          branch="codex/issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}"
+          git switch -c "$branch"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Run Codex
+        if: env.OPENAI_API_KEY != ''
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ env.OPENAI_API_KEY }}
+          prompt: ${{ steps.issue_context.outputs.prompt }}
+          sandbox: workspace-write
+
+      - name: Create pull request if Codex changed files
+        if: env.OPENAI_API_KEY != ''
+        id: pull_request
+        env:
+          BASE_REF: ${{ github.event.repository.default_branch }}
+          BRANCH_NAME: ${{ steps.branch.outputs.name }}
+          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.issue_context.outputs.issue_number }}
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Codex changes for issue #${ISSUE_NUMBER}"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+          {
+            printf 'Addresses #%s.\n\n' "$ISSUE_NUMBER"
+            printf 'Triggered by `@codex` in #%s.\n\n' "$ISSUE_NUMBER"
+            printf 'Codex final message:\n\n%s\n' "$CODEX_FINAL_MESSAGE"
+          } > "$RUNNER_TEMP/codex-pr-body.md"
+
+          pr_url="$(gh pr create \
+            --base "$BASE_REF" \
+            --head "$BRANCH_NAME" \
+            --title "Codex changes for issue #${ISSUE_NUMBER}" \
+            --body-file "$RUNNER_TEMP/codex-pr-body.md")"
+
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+
+      - name: Report Codex result
+        if: env.OPENAI_API_KEY != ''
+        uses: actions/github-script@v7
+        env:
+          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs.final-message }}
+          ISSUE_NUMBER: ${{ steps.issue_context.outputs.issue_number }}
+          PR_CREATED: ${{ steps.pull_request.outputs.created }}
+          PR_URL: ${{ steps.pull_request.outputs.url }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            const finalMessage = process.env.CODEX_FINAL_MESSAGE || "(Codex finished without a final message.)";
+            const body =
+              process.env.PR_CREATED === "true"
+                ? `Codex opened a pull request: ${process.env.PR_URL}\n\n${finalMessage}`
+                : `Codex finished without file changes.\n\n${finalMessage}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body
+            });

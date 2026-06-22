@@ -3,19 +3,19 @@ repos:
     hooks:
       - id: no-co-authored-by
         name: Reject Co-Authored-By in commit messages
-        entry: uv run --no-sync python scripts/°base/git/hooks/commit/reject_co_authored_by.py
+        entry: scripts/°base/git/hooks/tool_path.sh uv run --no-sync python scripts/°base/git/hooks/commit/reject_co_authored_by.py
         language: system
         stages: [commit-msg]
         always_run: true
       - id: require-memory-delete-marker
         name: Require marker for memory deletions
-        entry: python3 scripts/°base/git/hooks/commit/require_memory_delete_marker.py
+        entry: scripts/°base/git/hooks/tool_path.sh python3 scripts/°base/git/hooks/commit/require_memory_delete_marker.py
         language: system
         stages: [commit-msg]
         always_run: true
       - id: ai-settings-sync
         name: Check Claude/Codex settings sync
-        entry: python3 scripts/°base/ai/settings/sync.py --check
+        entry: scripts/°base/git/hooks/tool_path.sh python3 scripts/°base/ai/settings/sync.py --check
         language: system
         pass_filenames: false
         always_run: true

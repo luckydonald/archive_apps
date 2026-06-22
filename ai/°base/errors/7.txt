@@ -1,0 +1,2 @@
+➜ ./scripts/°base/init/checkout.sh
+./scripts/°base/init/checkout.sh: line 20: base: unbound variable

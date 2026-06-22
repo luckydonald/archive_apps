@@ -1,0 +1,3 @@
+03:46:58.892: [/Users/user/git/luckydonald/AllMyStorage] git -c core.quotepath=false -c log.showSignature=false checkout -B mane origin/mane --
+git-lfs filter-process: git-lfs: command not found
+fatal: the remote end hung up unexpectedly

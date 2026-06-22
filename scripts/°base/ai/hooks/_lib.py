@@ -91,14 +91,38 @@ def _chdir_to_git_root() -> Path:
     return Path(root)
 
 
+def _read_by_issue(subproject: Path, ai_prefix: str) -> str:
+    """Read the issue key from <subproject>/<ai_prefix>/.by-issue.
+
+    Returns the stripped content (e.g. ``PROJ-1234``) or ``""`` when the file
+    is absent or empty."""
+    by_issue = subproject / ai_prefix / ".by-issue"
+    if by_issue.is_file():
+        return by_issue.read_text(encoding="utf-8").strip()
+    return ""
+
+
 def resolve_log_path(default_relpath: str, base_relpath: str) -> Path:
     """Return the absolute AI-artifact path under the *subproject* root (with
-    the base-repo reroute applied) and cd to the git root so subsequent git
-    operations resolve relpaths uniformly. Creates parent directories as
-    needed."""
+    the base-repo reroute and optional ``by-issue/<KEY>/`` sub-directory
+    applied) and cd to the git root so subsequent git operations resolve
+    relpaths uniformly. Creates parent directories as needed.
+
+    When ``ai[/°base]/.by-issue`` exists and contains an issue key such as
+    ``PROJ-1234``, every path is routed through
+    ``ai[/°base]/by-issue/PROJ-1234/…`` instead of ``ai[/°base]/…``."""
     subproject = _subproject_root()
     _chdir_to_git_root()
-    relpath = base_relpath if _is_inside_base_repo(subproject) else default_relpath
+    is_base = _is_inside_base_repo(subproject)
+    ai_prefix = "ai/°base" if is_base else "ai"
+    relpath = base_relpath if is_base else default_relpath
+
+    issue = _read_by_issue(subproject, ai_prefix)
+    if issue:
+        # Insert by-issue/<KEY>/ immediately after the ai prefix.
+        rest = relpath[len(ai_prefix) + 1:]  # strip "ai[/°base]/"
+        relpath = f"{ai_prefix}/by-issue/{issue}/{rest}"
+
     log_path = (subproject / relpath).resolve()
     log_path.parent.mkdir(parents=True, exist_ok=True)
     return log_path
@@ -166,10 +190,12 @@ def append_and_commit(
     *,
     commit_template_relpath: str,
     default_commit_msg: str,
+    extra_paths: tuple[Path, ...] = (),
 ) -> None:
-    """Append ``content`` to ``log_path``, commit only that file, then re-apply
-    any user-staged edits to the same file on top of the new HEAD."""
+    """Append ``content`` to ``log_path``, commit only those AI artifact files,
+    then re-apply any user-staged edits to the log on top of the new HEAD."""
     relpath = str(log_path.relative_to(Path.cwd()))
+    extra_relpaths = [str(path.relative_to(Path.cwd())) for path in extra_paths]
     snap = _staged_snapshot(relpath)
 
     with log_path.open("a", encoding="utf-8") as f:
@@ -178,8 +204,11 @@ def append_and_commit(
     msg = _commit_message(commit_template_relpath, default_commit_msg)
     # `git commit --only` requires the path to be tracked, so make sure the
     # file is in the index first. Idempotent on already-tracked files.
-    subprocess.run(["git", "add", "--", relpath], capture_output=True)
-    subprocess.run(["git", "commit", "--only", relpath, "-m", msg], capture_output=True)
+    subprocess.run(["git", "add", "--", relpath, *extra_relpaths], capture_output=True)
+    subprocess.run(
+        ["git", "commit", "--no-verify", "--only", relpath, *extra_relpaths, "-m", msg],
+        capture_output=True,
+    )
 
     if snap is not None:
         _restore_staged(snap, relpath)

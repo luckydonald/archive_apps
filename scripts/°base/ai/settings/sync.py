@@ -593,33 +593,39 @@ def _apply_or_check(shared_path: Path, claude_path: Path, codex_path: Path, appl
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--apply", action="store_true", help="write synchronized files")
-    parser.add_argument("--check", action="store_true", help="fail if files are out of sync")
-    parser.add_argument("--explain", action="store_true", help="print changed paths")
+    parser = argparse.ArgumentParser(description="Synchronize Claude and Codex AI tool settings.")
+    parser.add_argument("--dry-run", action="store_true", help="show what would change without writing files")
+    parser.add_argument("--check", action="store_true", help="like --dry-run but exit 1 if files are out of sync (used by pre-commit)")
     args = parser.parse_args(argv)
 
     os.chdir(_git_root())
-    apply = args.apply and not args.check
-    config_status = 0
-    if apply or args.check:
-        config_status = _migrate_codex_feature_flag(CODEX_CONFIG, apply, sys.stdin.isatty())
+    dry = args.dry_run or args.check
+    apply = not dry
+    if args.dry_run:
+        print("Dry run — no files will be written.")
 
-    changed = []
+    config_status = _migrate_codex_feature_flag(CODEX_CONFIG, apply, sys.stdin.isatty())
+
+    changed: list[str] = []
     changed.extend(_apply_or_check(TRACKED_SHARED, CLAUDE_SETTINGS, CODEX_HOOKS, apply))
     if LOCAL_SHARED.is_file() or CLAUDE_LOCAL.is_file() or CODEX_LOCAL_HOOKS.is_file():
         changed.extend(_apply_or_check(LOCAL_SHARED, CLAUDE_LOCAL, CODEX_LOCAL_HOOKS, apply))
     changed.extend(_sync_skills(apply))
 
-    if changed and (args.explain or args.check):
-        print("AI tool settings are out of sync:")
+    if changed:
+        if args.check:
+            print("AI tool settings are out of sync:")
+            for path in changed:
+                print(f"  {path}")
+            print("Run `./scripts/°base/ai/settings/sync.py` to fix.")
+            return 1
+        verb = "Would write" if dry else "Wrote"
         for path in changed:
-            print(f"  {path}")
-    if args.check and changed:
-        return 1
-    if config_status:
-        return config_status
-    return 0
+            print(f"{verb}: {path}")
+    else:
+        print("All files are already in sync.")
+
+    return config_status
 
 
 if __name__ == "__main__":

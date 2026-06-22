@@ -285,7 +285,9 @@ $RECYCLE.BIN/
 
 # Created by .ignore support plugin (hsz.mobi)
 ### JetBrains template
-# Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
+# See also: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839-How-to-manage-projects-under-Version-Control-Systems
+# Taken from: https://github.com/github/gitignore/blob/dcc0fc7bc2b5ba480cf117ad1be31bafceeaff46/Global/JetBrains.gitignore
+# Covers JetBrains IDEs: IntelliJ, GoLand, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
 
 # User-specific stuff
@@ -294,9 +296,6 @@ $RECYCLE.BIN/
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
-.idea/**/vcs.xml
-.idea/**/jsLibraryMappings.xml
-
 
 # AWS User-specific
 .idea/**/aws.xml
@@ -317,18 +316,18 @@ $RECYCLE.BIN/
 .idea/**/gradle.xml
 .idea/**/libraries
 
-# # Gradle and Maven with auto-import
-# # When using Gradle or Maven with auto-import, you should exclude module files,
-# # since they will be recreated, and may cause churn.  Uncomment if using
-# # auto-import.
-# .idea/artifacts
-# .idea/compiler.xml
-# .idea/jarRepositories.xml
-# .idea/modules.xml
-# .idea/*.iml
-# .idea/modules
-# *.iml
-# *.ipr
+# Gradle and Maven with auto-import
+# When using Gradle or Maven with auto-import, you should exclude module files,
+# since they will be recreated, and may cause churn.  Uncomment if using
+# auto-import.
+.idea/artifacts
+.idea/compiler.xml
+.idea/jarRepositories.xml
+.idea/modules.xml
+.idea/*.iml
+.idea/modules
+*.iml
+*.ipr
 
 # CMake
 cmake-build-*/
@@ -336,13 +335,12 @@ cmake-build-*/
 # Mongo Explorer plugin
 .idea/**/mongoSettings.xml
 
-## File-based project format
+# File-based project format
 *.iws
 
 ## Plugin-specific files
 # IntelliJ
 out/
-/out/
 
 # mpeltonen/sbt-idea plugin
 .idea_modules/
@@ -355,6 +353,8 @@ atlassian-ide-plugin.xml
 
 # SonarLint plugin
 .idea/sonarlint/
+# see https://community.sonarsource.com/t/is-the-file-idea-idea-idea-sonarlint-xml-intended-to-be-under-source-control/121119
+.idea/sonarlint.xml
 
 # Crashlytics plugin (for Android Studio and IntelliJ)
 com_crashlytics_export_strings.xml
@@ -362,11 +362,19 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-# Editor-based Rest Client
+# Editor-based HTTP Client
 .idea/httpRequests
+http-client.private.env.json
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# Apifox Helper cache
+.idea/.cache/.Apifox_Helper
+.idea/ApifoxUploaderProjectSetting.xml
+
+# Github Copilot persisted session migrations, see: https://github.com/microsoft/copilot-intellij-feedback/issues/712#issuecomment-3322062215
+.idea/**/copilot.data.migration.*.xml
 
 ### Linux template
 *~
@@ -402,7 +410,7 @@ hugo.linux
 ### Example user template
 
 # IntelliJ project files
-.idea
+#.idea
 *.iml
 out
 gen
@@ -648,7 +656,7 @@ dmypy.json
 cython_debug/
 
 # IntelliJ project files
-.idea
+#.idea
 *.iml
 out
 gen
@@ -711,7 +719,9 @@ secring.*
 **/*.bak
 **/*.bak.*
 
-# idea
+# JetBrains non-`.idea` run configurations
+# # disallow custom but not local ones.
+!.run/*.run.xml
 .run/*local*.run.xml
 
 # temporary files
@@ -787,7 +797,6 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea
 *.suo
 *.ntvs*
 *.njsproj
@@ -797,6 +806,20 @@ dist-ssr
 *.tsbuildinfo
 
 .eslintcache
+
+# JetBrains (PyCharm, IntelliJ, etc.)
+#.idea
+# # this was ignored before, so I rather keep it ignored for now.
+.idea/**/vcs.xml
+.idea/**/jsLibraryMappings.xml
+# ACTUALLY I DON'T LIKE THIS, IT'S SCARY!
+.idea
+# # Do not ignore the list with default words.
+!.idea/dictionaries/project.xml
+# # allow run configurations in the standard directory
+!/.idea/runConfigurations
+# # but not local ones.
+/.idea/runConfigurations/*local*.run.xml
 
 # Cypress
 /cypress/videos/
@@ -815,6 +838,7 @@ playwright-report/
 **/.spacetimedb.master-key.*.txt
 !**/.spacetimedb.master-key.example.txt
 **/spacetime.local.json
+
 
 # Yarn 4
 # Yarn PnP
@@ -841,10 +865,9 @@ playwright-report/
 !.yarn/versions
 !**/.yarn/versions
 
-# inside .yarn, so should already be ignored, but make sure to not accidentally add big ass zip of node modules.
+# # inside .yarn, so should already be ignored, but make sure to not accidentally add big ass zip of node modules.
 install-state.gz
 **/install-state.gz
-
 
 
 # generic foo.local.bar files
@@ -856,7 +879,7 @@ install-state.gz
 .cache/
 
 # AI stuff
-.playwright-mcp/page-*.yml
+.playwright-mcp/
 
 # AI folder
 ai/git/pending-commit.md
@@ -888,11 +911,17 @@ ai/apis/
 # coverage output
 coverage/
 
-# idea
-.run/*local*.run.xml
-
 # python
 **/__pycache__
+
+# browser extensions (build/pack output, basically zip files of stuff already in this repo; should only be a release workflow)
+# # Thunderbird (and Firefox?)
+**/*.xpi
+# # Chrom(ium)(-like)
+**/*.crx
+# # Opera
+**/*.nex
+
 
 ######################################
 ##### END OF base's `.gitignore` #####

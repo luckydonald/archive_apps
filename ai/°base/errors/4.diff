@@ -1,0 +1,90 @@
+Index: ai/query.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/ai/query.md b/ai/query.md
+--- a/ai/query.md	(revision 322f8bbd6a608e7320a95022f1d99440f28f4ac6)
++++ b/ai/query.md	(revision abd7e6900d29adf0140f7131666b8667bd0b98fe)
+@@ -755,3 +755,83 @@
+
++❯ <task-notification>
++<task-id>a6bc9ead58e284556</task-id>
++<tool-use-id>toolu_016MBo1pSoqtooVkoXadq357</tool-use-id>
++<output-file>/tmp/claude-1000/-home-user-git-luckydonald-AnonAddyThunderbirdExtension/c0b3109b-5908-4188-ac96-e7c24eaef219/tasks/a6bc9ead58e284556.output</output-file>
++<status>completed</status>
++<summary>Agent "Research Thunderbird compose window XUL DOM for Experiment API" came to rest</summary>
++<note>A task-notification fires each time this agent comes to rest with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
++<result>**Task:** Find compose window DOM structure for address chips in Thunderbird 115+ for a WebExtension Experiment.
++
++---
++
++## Findings
++
++### 1. Detecting compose window open (Experiment parent)
++
++Use `windowTracker.addListener("compose-editor-ready", listener)` — this is the same mechanism the built-in `ext-compose.js` uses. The `windowTracker` is imported from `ExtensionSupport` / the common extension infrastructure. In an Experiment parent you can access it via:
++
++```javascript
++const { ExtensionCommon } = ChromeUtils.importESModule("resource://gre/modules/ExtensionCommon.sys.mjs");
++```
++
++or observe the window type `"msgcompose"` via `Services.wm`:
++
++```javascript
++Services.wm.addListener({ onOpenWindow(xulWin) { /* check xulWin.docShell.QueryInterface... */ } });
++```
++
++The window type is `"msgcompose"`.
++
++### 2. Address chip element: `&lt;mail-address-pill&gt;`
++
++Custom element tag: **`mail-address-pill`**
++CSS class added at connect time: **`address-pill`**
++
++Attributes holding the address:
++- **`fullAddress`** — complete RFC 2822 string, e.g. `"Alice &lt;alice@example.com&gt;"` — via `getAttribute("fullAddress")`
++- **`emailAddress`** — just the email part — via `getAttribute("emailAddress")`
++- **`displayName`** — display name part
++
++### 3. Recipient area container
++
++Tag: **`&lt;mail-recipients-area&gt;`** (custom element, `customElements.define("mail-recipients-area", MailRecipientsArea)`)
++
++Field type (to/cc/bcc) is stored on the **address row** element:
++`pill.closest(".address-row").dataset.recipienttype` → `"to"`, `"cc"`, or `"bcc"`
++
++### 4. Event to hook
++
++**`click`** on `&lt;mail-address-pill&gt;` is the right hook for a context/replace action. For a right-click context menu: **`contextmenu`** on the pill. Both fire on the pill element directly.
++
++### 5. Putting it together — minimal Experiment skeleton
++
++```javascript
++// In Experiment parent implementation.js
++onStartup() {
++  Services.wm.addListener({
++    onOpenWindow(xulWin) {
++      const win = xulWin.QueryInterface(Ci.nsIInterfaceRequestor)
++        .getInterface(Ci.nsIDOMWindow);
++      win.addEventListener("load", () =&gt; {
++        if (win.document.documentElement.getAttribute("windowtype") !== "msgcompose") return;
++        win.document.addEventListener("contextmenu", e =&gt; {
++          const pill = e.target.closest("mail-address-pill");
++          if (!pill) return;
++          const email = pill.getAttribute("emailAddress");
++          const fieldType = pill.closest(".address-row")?.dataset.recipienttype; // "to"/"cc"/"bcc"
++          // fire a custom event back to the WebExtension, or mutate directly
++        });
++      }, { once: true });
++    }
++  });
++}
++```
++
++---
++
++**Verdict:** Feasible via Experiment. The DOM is `&lt;mail-address-pill&gt;` elements inside `.address-row` containers inside `&lt;mail-recipients-area&gt;`. Email is in the `emailAddress` attribute; field type is in the nearest `.address-row`'s `dataset.recipienttype`. Hook `contextmenu` or `click` on `mail-address-pill`. The Experiment needs `Services.wm` to find compose windows (type `"msgcompose"`). The permission cost is the blanket "full unrestricted access" prompt replacing all individual permissions.</result>
++<usage><subagent_tokens>67643</subagent_tokens><tool_uses>6</tool_uses><duration_ms>69837</duration_ms></usage>
++</task-notification>
++
