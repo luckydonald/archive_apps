@@ -447,6 +447,7 @@ import hashlib, locale, os, stat, sys
 app_root = os.path.abspath(sys.argv[1])
 mode = sys.argv[2]
 lines = []
+locale.setlocale(locale.LC_COLLATE, 'C')
 
 for root, dirs, files in os.walk(app_root, topdown=True, followlinks=False):
     dirs.sort(key=locale.strxfrm)
@@ -825,7 +826,7 @@ try:
         if _tty:
             sys.stderr.write('\r\033[K')
             sys.stderr.flush()
-        locale.setlocale(locale.LC_ALL, '')
+        locale.setlocale(locale.LC_COLLATE, 'C')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
         print('\n'.join(results))
         if unreadable:
