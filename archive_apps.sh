@@ -376,10 +376,11 @@ _write_checksums() {
     safe_mv "$dest/$checksumname.tmp" "$dest/$checksumname"
 }
 
-# Remove a zip from dest.
+# Remove a zip from dest and, if a local_cache copy exists, from there too.
 _remove_zip() {
     local zipname="$1"
     rm -f "$dest/$zipname"
+    [[ -n "$local_cache" ]] && rm -f "$local_cache/$zipname" || true
 }
 
 _WFAIL_DST=""
