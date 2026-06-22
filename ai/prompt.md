@@ -491,3 +491,5 @@ That makes me wonder, if we can actually re-enable using a local disk cache, lik
 > ```
 > 
 
+❯ Document the command (`README.md` etc.) but don't mention the drive, just `/Volumes/…/data` or similar.
+
