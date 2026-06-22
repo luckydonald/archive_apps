@@ -381,6 +381,7 @@ _remove_zip() {
     local zipname="$1"
     rm -f "$dest/$zipname"
     [[ -n "$local_cache" ]] && rm -f "$local_cache/$zipname" || true
+    [[ -n "$local_cache" ]] && rm -f "$local_cache/$zipname.tmp" || true
 }
 
 _WFAIL_DST=""
