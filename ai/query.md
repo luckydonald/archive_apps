@@ -500,9 +500,15 @@ That makes me wonder, if we can actually re-enable using a local disk cache, lik
 >   "annotations": {}
 > }
 > ```
-> 
+>
 
 ❯ Document the command (`README.md` etc.) but don't mention the drive, just `/Volumes/…/data` or similar.
 
 ❯ The `--local-cache` files can be deleted after transfering to the destination (use _move_ instead of _copy_?) Does the move/{copy+delete} have a progress bar already? Add otherwise.
+
+❯ Alright, only one problematic file remaining, XCode: @ai/errors/14.md
+
+❯ Check the issue except at @ai/errors/15.md - why do the checksums differ?
+
+❯ Alright, now the hard one: @ai/errors/14.md
 

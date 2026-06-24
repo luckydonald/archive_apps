@@ -734,7 +734,11 @@ def _find_zip64_offset(fp, info):
     # Python bug: when only header_offset needs ZIP64 (file/compress sizes < 4 GB),
     # Python misassigns the 8-byte ZIP64 offset field to file_size and leaves
     # header_offset at the sentinel 0xFFFFFFFF.  The true offset is still in
-    # info.extra — scan it for any value > 4 GB that has PK\x03\x04 there.
+    # info.extra — try every 8-byte field in the ZIP64 block and validate with
+    # the local-file-header signature.  No "> 4 GB" guard: entries in the first
+    # 4 GB of a ZIP64 archive have valid offsets ≤ 0xFFFFFFFF that the old
+    # guard silently skipped, causing all such entries to fall through to the
+    # (broken on macOS) unzip fallback.
     extra = info.extra or b''
     i = 0
     while i + 4 <= len(extra):
@@ -744,13 +748,12 @@ def _find_zip64_offset(fp, info):
             n = (min(size, len(extra) - i) // 8) * 8
             for j in range(0, n, 8):
                 v = struct.unpack_from('<Q', extra, i + j)[0]
-                if v > 0xFFFFFFFF:
-                    try:
-                        fp.seek(v)
-                        if fp.read(4) == b'PK\x03\x04':
-                            return v
-                    except Exception:
-                        pass
+                try:
+                    fp.seek(v)
+                    if fp.read(4) == b'PK\x03\x04':
+                        return v
+                except Exception:
+                    pass
         i += size
     return None
 
