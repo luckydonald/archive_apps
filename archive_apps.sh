@@ -111,6 +111,7 @@ rm_retry() {
                 _render_progress_bar "DELETE" "$current" "$total" "$start_ts"
             done < <(find "$dir" -depth -print 2>/dev/null)
             _clear_progress_bar
+            _print_elapsed "DELETE" "$start_ts"
         else
             rm -rf "$dir"
         fi
@@ -199,6 +200,11 @@ _clear_progress_bar() {
     printf '\r\033[K' > /dev/stderr
 }
 
+_print_elapsed() {
+    local label="${1%" "}" start_ts="$2"
+    printf '  %s done in %s\n' "$label" "$(_format_duration "$(( $(date +%s) - start_ts ))")" >&2
+}
+
 _progress_bar_filter() {
     local label="$1" total="$2"
     local line current=0 step start_ts
@@ -215,6 +221,7 @@ _progress_bar_filter() {
     done
 
     _clear_progress_bar
+    _print_elapsed "$label" "$start_ts"
 }
 
 _rsync_progress_bar_filter() {
@@ -234,6 +241,7 @@ _rsync_progress_bar_filter() {
     done
 
     _clear_progress_bar
+    _print_elapsed "$label" "$start_ts"
 }
 
 _rsync_file_progress_bar_filter() {
@@ -247,6 +255,7 @@ _rsync_file_progress_bar_filter() {
         fi
     done
     _clear_progress_bar
+    _print_elapsed "$label" "$start_ts"
 }
 
 _shuffle_array() {
@@ -904,6 +913,7 @@ try:
                 _bar(_i)
         if _tty:
             sys.stderr.write('\r\033[K')
+            sys.stderr.write('  VERIFY done in ' + _fmt_duration(int(time.time() - _start)) + '\n')
             sys.stderr.flush()
         locale.setlocale(locale.LC_COLLATE, 'C')
         results.sort(key=lambda x: locale.strxfrm(x.split('  ', 1)[1]))
@@ -912,6 +922,9 @@ try:
             print(str(len(unreadable)) + ' entries could not be read', file=sys.stderr)
             sys.exit(2)
 except Exception as e:
+    if '_start' in dir() and os.isatty(sys.stderr.fileno()):
+        sys.stderr.write('\r\033[K  VERIFY failed after ' + _fmt_duration(int(time.time() - _start)) + '\n')
+        sys.stderr.flush()
     print('Error: ' + str(e), file=sys.stderr)
     sys.exit(1)
 PYEOF
