@@ -512,3 +512,5 @@ That makes me wonder, if we can actually re-enable using a local disk cache, lik
 
 ❯ Alright, now the hard one: @ai/errors/14.md
 
+❯ for funsies, time how long the program is stuck in an intense operation (where a progress bar is displayed) and pretty print that after completion/error
+
