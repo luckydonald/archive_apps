@@ -15,7 +15,7 @@ from .progress import (
     ProgressBar, copy_with_progress,
     drain_ditto_stderr, drain_rsync_stderr, run_with_bar,
 )
-from .utils import fmt_size, sanitize_temp_component, sha256_text
+from .utils import fmt_size, sanitize_temp_component, sha256_text, supports_xattr
 
 
 def count_files(path: Path) -> int:
@@ -100,11 +100,15 @@ def count_live_symlinks(app: Path) -> int:
 
 def copy_app_fresh(app: Path, workapp: Path) -> None:
     total = count_files(app)
+    xattr_ok = supports_xattr(workapp.parent)
+    extra = [] if xattr_ok else ["--noextattr", "--norsrc"]
+    if not xattr_ok:
+        print("  COPY WARN: destination filesystem does not support xattrs; resource forks will be omitted", file=sys.stderr)
     if sys.stderr.isatty() and total > 0:
         bar = ProgressBar("COPY", total)
-        run_with_bar(["ditto", "-V", str(app), str(workapp)], bar, drain_ditto_stderr)
+        run_with_bar(["ditto", "-V"] + extra + [str(app), str(workapp)], bar, drain_ditto_stderr)
     else:
-        subprocess.run(["ditto", str(app), str(workapp)], check=True)
+        subprocess.run(["ditto"] + extra + [str(app), str(workapp)], check=True)
 
 
 def repair_app_copy(app: Path, workapp: Path) -> None:
@@ -151,17 +155,19 @@ def archive_app_to_zip(
     ensure_archive_copy(app, versioned, workdir, ctx)
 
     total = count_files(app)
+    xattr_ok = supports_xattr(workdir)
+    rsrc_flag = "--sequesterRsrc" if xattr_ok else "--norsrc"
     if sys.stderr.isatty() and total > 0:
         bar = ProgressBar("ZIP ", total)
         run_with_bar(
-            ["ditto", "-V", "-c", "-k", "--sequesterRsrc", "--keepParent",
+            ["ditto", "-V", "-c", "-k", rsrc_flag, "--keepParent",
              versioned, str(dest_zip)],
             bar, drain_ditto_stderr,
             cwd=workdir,
         )
     else:
         subprocess.run(
-            ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+            ["ditto", "-c", "-k", rsrc_flag, "--keepParent",
              versioned, str(dest_zip)],
             cwd=str(workdir), check=True,
         )

@@ -701,3 +701,5 @@ Regarding:
 Yeah I think that makes sense. Full package splits in a `archive_apps` package and relative imports. An outer `main.py` importing that namespace.
 The `tool` entrypoint makes sense, too.
 
+❯ @ai/errors/17.txt
+
