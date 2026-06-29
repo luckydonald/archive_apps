@@ -509,3 +509,34 @@ Possible values could be:
 
 ❯ /plan Oh, fun one: Rewrite the script as `archive_apps.py`. You may use `uv` for installing packages etc.
 
+❯ Question answered.
+> <details><summary>
+>
+>> 1. Two things to confirm before I start implementing:
+>>    - Keep archive_apps.sh as-is (don't rename/delete it)
+>>    - Identical CLI and output format to the .sh
+>>    - archive_apps.py always calls ditto for zipping (no pure-Python zip)
+>>    - _Other_: For now keep the external program calls as is, but put a `# TODO: <how to best replace>` above it.
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Scope** (1/1) <kbd>Multi Select</kbd><br>
+>> Two things to confirm before I start implementing:
+> - [x] 1\. Keep archive_apps.sh as-is (don't rename/delete it) <sup><sub><kbd>#1</kbd></sub></sup>
+>   - _archive_apps.py lives alongside it; .sh stays as the historical reference._
+> - [x] 2\. archive_apps.py always calls ditto for zipping (no pure-Python zip) <sup><sub><kbd>#3</kbd></sub></sup>
+>   - _ditto is the only correct tool for macOS resource forks/xattrs. The plan keeps all ditto and rsync calls; only PlistBuddy is replaced with plistlib._
+> - [ ] 3\. Single file (not a package with submodules)
+>   - _One archive_apps.py ~1 100 lines, same shape as the .sh._
+> - [x] 4\. Identical CLI and output format to the .sh <sup><sub><kbd>#2</kbd></sub></sup>
+>   - _Drop-in replacement — same flags, same ARCHIVING/VERIFY/etc. output lines, same filename conventions._
+> - [x] 5\. _Type something:_
+>   - > For now keep the external program calls as is, but put a `# TODO: <how to best replace>` above it.
+>
+> </details>
+>
+
+❯ I commited this one for you.
+
