@@ -703,3 +703,7 @@ The `tool` entrypoint makes sense, too.
 
 ❯ @ai/errors/17.txt
 
+❯ But I want the resource forks etc. Custom python `zip` after all?
+
+❯ Loosing `--keep-temp` is fine.
+

@@ -3,6 +3,8 @@ from __future__ import annotations
 import atexit
 import signal
 import sys
+import tempfile
+from pathlib import Path
 from typing import Callable
 
 from .archive import run_archive
@@ -34,6 +36,10 @@ def _make_cleanup(ctx: RunContext) -> Callable[[], None]:
             if f not in ctx.preserve_tmps:
                 f.unlink(missing_ok=True)
         for d in cfg.dest.glob(".archive_apps.*"):
+            if d.is_dir():
+                rm_retry(d)
+        # also clean up workdirs that were redirected to the system temp dir
+        for d in Path(tempfile.gettempdir()).glob(".archive_apps.*"):
             if d.is_dir():
                 rm_retry(d)
 
