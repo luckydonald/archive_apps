@@ -44,11 +44,13 @@ No PyPI dependencies — everything is stdlib + macOS system tools (`ditto`, `rs
 
 ## Key translation decisions
 
-| Bash | Python |
-|------|--------|
-| `PlistBuddy` | `plistlib.load()` (stdlib, handles binary + XML plists) |
-| `shasum -a 256` | `hashlib.sha256()` |
-| `find … | wc -l` | `sum(1 for _ in Path.rglob('*') if _.is_file())` |
+All external tool invocations (`ditto`, `rsync`, `PlistBuddy`, `shasum`, `find`, `du`, `stat`, `date`, …) are kept as `subprocess` calls. Each one gets a `# TODO: replace with <pure-Python equivalent>` comment so the path to full stdlib is clear.
+
+| Bash | Python subprocess call | TODO note |
+|------|------------------------|-----------|
+| `PlistBuddy -c "Print :Key"` | `subprocess.run(['…'])` | `plistlib.load()` (stdlib) |
+| `shasum -a 256` | `subprocess.run(['shasum', …])` | `hashlib.sha256()` |
+| `find … | wc -l` | `subprocess.run(['find', …])` | `sum(1 for p in Path(x).rglob('*') if p.is_file())` |
 | `ditto -V` copy (COPY bar) | `subprocess.Popen`, drain stderr in background thread feeding `ProgressBar` |
 | `ditto -c -k` zip (ZIP bar) | same — ditto is still called; no Python zipfile replacement (resource forks) |
 | `rsync --progress` (SEND bar) | same — rsync is still called |
