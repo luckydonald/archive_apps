@@ -39,7 +39,6 @@ class Config:
     verify_abort: bool
     keep_temp: bool
     external_symlink_policy: str   # "archive" | "skip" | "abort"
-    same_fs: bool              # dest and /Applications on the same volume
 
 
 # ---------------------------------------------------------------------------
@@ -129,20 +128,6 @@ def parse_args(argv: list[str]) -> Config:
             sys.exit(1)
         local_cache = lc
 
-    # TODO: replace with os.stat(dest).st_dev == os.stat('/Applications').st_dev
-    try:
-        r = subprocess.run(
-            ["stat", "-f", "%d", str(dest)],
-            capture_output=True, text=True, check=True,
-        )
-        r2 = subprocess.run(
-            ["stat", "-f", "%d", "/Applications"],
-            capture_output=True, text=True, check=True,
-        )
-        same_fs = r.stdout.strip() == r2.stdout.strip()
-    except Exception:
-        same_fs = False
-
     return Config(
         dest=dest,
         local_cache=local_cache,
@@ -151,7 +136,6 @@ def parse_args(argv: list[str]) -> Config:
         verify_abort=verify_abort,
         keep_temp=keep_temp,
         external_symlink_policy=external_symlink_policy,
-        same_fs=same_fs,
     )
 
 
@@ -525,6 +509,17 @@ def _sha256_text(text: str) -> str:
 # Utility: sanitize temp path component
 # ---------------------------------------------------------------------------
 
+def _supports_xattr(path: Path) -> bool:
+    import ctypes, errno as _errno
+    _lib = ctypes.CDLL(None, use_errno=True)
+    name = b"com.apple.archive_apps.probe\x00"
+    ret = _lib.setxattr(str(path).encode("utf-8"), name, ctypes.c_char_p(b""), 0, 0, 0)
+    if ret == -1:
+        return ctypes.get_errno() != _errno.ENOTSUP
+    _lib.removexattr(str(path).encode("utf-8"), name, 0)
+    return True
+
+
 def _sanitize_temp_component(value: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9.@_-]+", "_", value)
     value = value.strip("_")
@@ -871,16 +866,16 @@ def _count_files(path: Path) -> int:
 def copy_app_fresh(app: Path, workapp: Path) -> None:
     total = _count_files(app)
     tty = sys.stderr.isatty()
+    xattr_ok = _supports_xattr(workapp.parent)
+    extra = [] if xattr_ok else ["--noextattr", "--norsrc"]
+    if not xattr_ok:
+        print("  COPY WARN: destination filesystem does not support xattrs; resource forks will be omitted", file=sys.stderr)
 
-    if tty and total > 0 and not _cfg.same_fs:
+    if tty and total > 0:
         bar = ProgressBar("COPY", total)
-        _run_with_bar(["ditto", "-V", str(app), str(workapp)], bar, _drain_ditto_stderr)
+        _run_with_bar(["ditto", "-V"] + extra + [str(app), str(workapp)], bar, _drain_ditto_stderr)
     else:
-        # TODO: replace cp -cR with shutil.copy2 tree when same_fs clone is not needed
-        if _cfg.same_fs:
-            subprocess.run(["cp", "-cR", str(app), str(workapp)], check=True)
-        else:
-            subprocess.run(["ditto", str(app), str(workapp)], check=True)
+        subprocess.run(["ditto"] + extra + [str(app), str(workapp)], check=True)
 
 
 def repair_app_copy(app: Path, workapp: Path) -> None:
@@ -932,18 +927,19 @@ def archive_app_to_zip(
     total = _count_files(app)
     tty = sys.stderr.isatty()
 
-    # TODO: replace ditto zip with zipfile + xattr preservation (needs third-party lib or xattr syscalls)
+    xattr_ok = _supports_xattr(workdir)
+    rsrc_flag = "--sequesterRsrc" if xattr_ok else "--norsrc"
     if tty and total > 0:
         bar = ProgressBar("ZIP ", total)
         _run_with_bar(
-            ["ditto", "-V", "-c", "-k", "--sequesterRsrc", "--keepParent",
+            ["ditto", "-V", "-c", "-k", rsrc_flag, "--keepParent",
              versioned, str(dest_zip)],
             bar, _drain_ditto_stderr,
             cwd=workdir,
         )
     else:
         subprocess.run(
-            ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+            ["ditto", "-c", "-k", rsrc_flag, "--keepParent",
              versioned, str(dest_zip)],
             cwd=str(workdir), check=True,
         )

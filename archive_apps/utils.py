@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ctypes
+import errno
 import hashlib
 import re
 import time
@@ -50,6 +52,23 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def supports_xattr(path: Path) -> bool:
+    """Return True if the filesystem at path supports extended attributes.
+
+    Uses setxattr(2) probe; ENOTSUP means the filesystem rejects xattrs
+    (ExFAT, FAT32, some network mounts). Other errors are treated as
+    "supported but permission denied" to avoid false negatives.
+    """
+    _lib = ctypes.CDLL(None, use_errno=True)
+    name = b"com.apple.archive_apps.probe\x00"
+    # macOS setxattr(path, name, value, size, position, options)
+    ret = _lib.setxattr(str(path).encode("utf-8"), name, ctypes.c_char_p(b""), 0, 0, 0)
+    if ret == -1:
+        return ctypes.get_errno() != errno.ENOTSUP
+    _lib.removexattr(str(path).encode("utf-8"), name, 0)
+    return True
 
 
 def sanitize_temp_component(value: str) -> str:
