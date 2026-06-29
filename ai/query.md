@@ -518,3 +518,5 @@ Possible values could be:
   - `Xcode.app@15.4.2026-06-24_01-50-16.bak.zip`
   - full path at destination/filename
 
+❯ /plan Oh, fun one: Rewrite the script as `archive_apps.py`. You may use `uv` for installing packages etc.
+
