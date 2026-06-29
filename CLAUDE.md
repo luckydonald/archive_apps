@@ -28,14 +28,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./archive_apps.sh --help
 ```
 
-No build step, no dependencies to install. Requires macOS (`ditto`, `PlistBuddy`, `shasum` are all system tools).
+No build step, no dependencies to install. Requires macOS (`ditto` is a system tool).
+
+## Running the Python package
+
+```bash
+# Run directly (uv auto-installs Python if needed)
+./main.py [options] [destination]
+
+# Run as a module
+python -m archive_apps [options] [destination]
+
+# Install as a tool (then use 'archive-apps' from anywhere)
+uv tool install .
+archive-apps [options] [destination]
+```
+
+The package (`archive_apps/`) and the single-file version (`archive_apps.py`) coexist; both implement the identical CLI. `archive_apps.py` is kept as a standalone fallback.
+
+### Package layout
+
+```
+archive_apps/
+  __main__.py   entry point, RunContext setup, atexit/signal
+  cli.py        Config dataclass, RunContext dataclass, parse_args()
+  utils.py      fmt_size, fmt_duration, sha256_text, sha256_file, sanitize_temp_component
+  progress.py   ProgressBar, drain functions, run_with_bar, copy_with_progress
+  io.py         tty_read, write_fail_menu, safe_write, safe_append, safe_mv, rm_retry
+  zip_ops.py    checksums_from_zip, external_symlinks_from_zip, count_symlinks_from_zip
+  app_ops.py    collect_app_manifest, copy_app_fresh, archive_and_store_zip, …
+  verify.py     verify_checksum_file_contents, run_verify_zip, run_verify_all
+  archive.py    plist_value (plistlib), run_archive
+main.py         thin shebang wrapper → archive_apps.__main__:main
+pyproject.toml  [project.scripts] archive-apps = "archive_apps.__main__:main"
+```
 
 ## Architecture / logic flow
 
 The script processes each `*.app` under `/Applications` (up to depth 2) in a single `while` loop:
 
 1. **Locate Info.plist** — checks `Contents/Info.plist` first; falls back to `WrappedBundle/Info.plist` for iOS-on-Mac apps (which get a `mobile@` infix in the filename).
-2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `PlistBuddy`.
+2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib` (Python package) or `PlistBuddy` (shell script).
 3. **Check if zip already exists** at `{dest}/{AppName}.app@[mobile@]{version}.zip`:
    - If the zip exists and a matching `.checksums.txt` also exists → skip entirely.
    - If the zip exists but the checksums file is missing → extract the zip to a temp dir, compute checksums for both the extracted copy and the live app, compare:

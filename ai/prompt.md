@@ -540,3 +540,164 @@ Possible values could be:
 
 ❯ I commited this one for you.
 
+❯ /plan replace with python tooling where it makes sense. Ask me about every choice.
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. These 7 are mechanical no-tradeoff substitutions — replace all?
+>>    - _Other_: Most sound good, what's with `shasum` vs `hashlib`'s performance?
+>> 2. du -sh is called in 4 places just to print a human-readable size. Replace with a Python _fmt_size(path) helper?
+>>    - _Other_: Yes, but no underscore in files. Instead have proper utils files.
+>> 3. cp -cR uses APFS copy-on-write (same-filesystem, no-bar case). Python has no equivalent.
+>>    - _Other_: Did we have a progressbar for `cp -cR`? Would some `rsync` like command be better?
+>> 4. rsync for SEND copies one .zip from local_cache to dest (no xattrs needed). Replace with shutil.copy2 + thread-based progress?
+>>    - _Other_: How's the performance for this one?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Trivial swaps** (1/4) <kbd>Single Select</kbd><br>
+>> These 7 are mechanical no-tradeoff substitutions — replace all?
+> - [ ] 1\. Yes, replace all (Recommended)
+>   - _stat→os.stat().st_dev · sha256 TODO (already pure Python, just remove) · find|wc-l→Path.rglob · find *.zip/.app→Path.glob · shasum→hashlib · PlistBuddy→plistlib_
+> - [ ] 2\. No, keep as subprocesses
+>   - _Leave these shell calls in place._
+> - [x] 3\. _Type something:_
+>   - > Most sound good, what's with `shasum` vs `hashlib`'s performance?
+>
+>> **du -sh** (2/4) <kbd>Single Select</kbd><br>
+>> du -sh is called in 4 places just to print a human-readable size. Replace with a Python _fmt_size(path) helper?
+> - [ ] 1\. Yes — _fmt_size(path) using os.stat / os.walk (Recommended)
+>   - _Output slightly differs from du (e.g. "5.21 GB" vs "5.2G") but eliminates the subprocess._
+> - [ ] 2\. No — keep du -sh
+>   - _Leave du -sh as a subprocess call._
+> - [x] 3\. _Type something:_
+>   - > Yes, but no underscore in files. Instead have proper utils files.
+>
+>> **cp -cR clone** (3/4) <kbd>Single Select</kbd><br>
+>> cp -cR uses APFS copy-on-write (same-filesystem, no-bar case). Python has no equivalent.
+> - [ ] 1\. Replace with ditto (always correct, loses clone speed) (Recommended)
+>   - _Call ditto in both same-fs and cross-fs cases. Eliminates cp subprocess._
+> - [ ] 2\. Keep cp -cR
+>   - _Preserve the APFS clone optimization for same-filesystem copies._
+> - [x] 3\. _Type something:_
+>   - > Did we have a progressbar for `cp -cR`? Would some `rsync` like command be better?
+>
+>> **rsync SEND** (4/4) <kbd>Single Select</kbd><br>
+>> rsync for SEND copies one .zip from local_cache to dest (no xattrs needed). Replace with shutil.copy2 + thread-based progress?
+> - [ ] 1\. Yes — shutil.copy2 + chunk-based progress bar (Recommended)
+>   - _Reads in 1 MB chunks on a background thread, ticking the progress bar. Drops the rsync subprocess for this path._
+> - [ ] 2\. No — keep rsync --progress
+>   - _Leave it as-is._
+> - [x] 3\. _Type something:_
+>   - > How's the performance for this one?
+>
+> </details>
+>
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. hashlib vs shasum: Python's hashlib.sha256() calls OpenSSL internally, same as macOS's shasum. The difference is shasum on macOS is actually a Perl script (/usr/bin/shasum), so hashlib is faster (no Perl startup, no process fork). Replace shasum with hashlib?
+>>    - Yes — hashlib is faster (no subprocess) (Recommended)
+>> 2. For fmt_size and other utils: the script is currently one file (archive_apps.py). Do you want to split it into multiple files?
+>>    - Split into a package: archive_apps/__main__.py + utils.py etc.
+>> 3. cp -cR (same-fs, no tty): no progress bar was shown here in either version. The user asks if rsync would be better. For a same-filesystem copy of a .app, ditto is the most correct macOS tool (handles resource forks). Would you prefer:
+>>    - _Other_: can we have `cp -cR` but _with_ progress bar?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **shasum perf** (1/3) <kbd>Single Select</kbd><br>
+>> hashlib vs shasum: Python's hashlib.sha256() calls OpenSSL internally, same as macOS's shasum. The difference is shasum on macOS is actually a Perl script (/usr/bin/shasum), so hashlib is faster (no Perl startup, no process fork). Replace shasum with hashlib?
+> - [x] 1\. Yes — hashlib is faster (no subprocess) (Recommended)
+>   - _Reads the file in Python and hashes with hashlib.sha256(). Equivalent output, faster for large files._
+> - [ ] 2\. Keep shasum
+>   - _Leave shasum as a subprocess call._
+> - [ ] 3\. _Type something._
+>
+>> **File structure** (2/3) <kbd>Single Select</kbd><br>
+>> For fmt_size and other utils: the script is currently one file (archive_apps.py). Do you want to split it into multiple files?
+> - [x] 1\. Split into a package: archive_apps/__main__.py + utils.py etc.
+>   - _Runnable via `python -m archive_apps` or `uv run archive_apps`. Cleaner separation but adds a directory._
+> - [ ] 2\. Keep single file, just use public names (fmt_size not _fmt_size)
+>   - _No directory change. Just drop the leading underscore on utility functions._
+> - [ ] 3\. Keep single file as-is, add a utils section with private names
+>   - _Minimal change — just move helpers into a labelled section._
+> - [ ] 4\. _Type something._
+>
+>> **same-fs copy** (3/3) <kbd>Single Select</kbd><br>
+>> cp -cR (same-fs, no tty): no progress bar was shown here in either version. The user asks if rsync would be better. For a same-filesystem copy of a .app, ditto is the most correct macOS tool (handles resource forks). Would you prefer:
+> - [ ] 1\. Always use ditto (drop cp -cR, drop same_fs detection) (Recommended)
+>   - _Simpler: one code path for all copies. Loses the APFS clone speed on same-fs but correct in all cases._
+> - [ ] 2\. Use rsync -a --extended-attributes instead of cp -cR
+>   - _Consistent with the repair path. Handles xattrs, no APFS clone speed, no progress bar difference._
+> - [ ] 3\. Keep cp -cR for same-fs
+>   - _Preserve the APFS clone optimization._
+> - [x] 4\. _Type something:_
+>   - > can we have `cp -cR` but _with_ progress bar?
+>
+> </details>
+>
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. cp -cR has no verbose/progress output to parse. Options for showing progress while using APFS clone:
+>>    - _Other_: Are there other ways to keep the APFS clone speed?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **cp progress** (1/1) <kbd>Single Select</kbd><br>
+>> cp -cR has no verbose/progress output to parse. Options for showing progress while using APFS clone:
+> - [ ] 1\. Poll the destination directory on a background thread (Recommended)
+>   - _Start cp -cR in background, poll dest file count every ~0.5s vs expected total, update bar. Approximate progress but shows activity. cp -c clone speed preserved._
+> - [ ] 2\. Use ditto -V for tty + cp -cR for non-tty (current behavior, no change)
+>   - _When someone is watching (tty), use ditto for accurate progress. When running unattended, use cp -c for speed. No new work needed here._
+> - [ ] 3\. Replace with rsync + progress (drop APFS clone)
+>   - _rsync --extended-attributes --progress gives accurate per-file progress but loses the APFS copy-on-write speed advantage._
+> - [x] 4\. _Type something:_
+>   - > Are there other ways to keep the APFS clone speed?
+>
+> </details>
+>
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. APFS clones use the clonefile(2) syscall (what cp -c calls internally). We could call it from Python via ctypes — that lets us walk the directory ourselves and tick a progress bar per file while keeping clone speed. But it adds ~30 lines of ctypes + xattr handling.
+>>    - _Other_: If I already use `clonefile`, wouldn't it be easier to just replace `ditto` (and `xattrs` stuff) as well?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **APFS clone impl** (1/1) <kbd>Single Select</kbd><br>
+>> APFS clones use the clonefile(2) syscall (what cp -c calls internally). We could call it from Python via ctypes — that lets us walk the directory ourselves and tick a progress bar per file while keeping clone speed. But it adds ~30 lines of ctypes + xattr handling.
+> - [ ] 1\. Implement clonefile() via ctypes (clone speed + progress) (Recommended)
+>   - _Walk source tree with os.walk, call ctypes.CDLL(None).clonefile() per file, makedirs for dirs, copy xattrs with ditto --norsrc for any extra attrs. Accurate per-file progress bar._
+> - [ ] 2\. Accept no progress on same-fs (keep current cp -cR fallback)
+>   - _same_fs + no-tty: cp -cR fast. same_fs + tty: could show a spinner/elapsed-only indicator rather than a bar._
+> - [ ] 3\. Always use ditto -V (drop APFS clone entirely)
+>   - _One code path: always ditto. Correct for all cases but same-fs copies lose clone speed (Xcode is ~10 GB, this matters)._
+> - [x] 4\. _Type something:_
+>   - > If I already use `clonefile`, wouldn't it be easier to just replace `ditto` (and `xattrs` stuff) as well?
+>
+> </details>
+>
+
+❯ Let's discuss in chat, we don't need the question overhead, lol
+
+❯ Alright, keeping `ditto` and `rsync` makes sense. `cp -cR` is an weird alternative code path, with the choice basically depending on display settings, we should get rid of or properly merge.
+
+Regarding:
+> Should I also split out e.g. `progress.py`, `zip_ops.py`, `io.py` — or just `utils.py` + `__main__.py` for now? And do you want a `pyproject.toml` with a script entry point so `uv tool install .` works?
+
+Yeah I think that makes sense. Full package splits in a `archive_apps` package and relative imports. An outer `main.py` importing that namespace.
+The `tool` entrypoint makes sense, too.
+
