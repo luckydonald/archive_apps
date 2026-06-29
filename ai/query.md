@@ -514,3 +514,15 @@ That makes me wonder, if we can actually re-enable using a local disk cache, lik
 
 ❯ for funsies, time how long the program is stuck in an intense operation (where a progress bar is displayed) and pretty print that after completion/error
 
+❯ Add a `--veryify-zip` to verify a specific app or zip directly.
+Possible values could be:
+- Generic application selector (= all "same app" zip files")
+  - `Xcode`
+  - `Xcode.app`
+  - `/Applications/Xcode.app`
+  - `/Applications/Xcode.app/Contents/MacOS/Xcode`
+- Specific zip file:
+  - `Xcode.app@15.4.zip`
+  - `Xcode.app@15.4.2026-06-24_01-50-16.bak.zip`
+  - full path at destination/filename
+

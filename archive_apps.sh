@@ -2,6 +2,7 @@
 set -euo pipefail
 
 verify_mode="none"
+verify_zip_arg=""
 dest_arg=""
 local_cache_arg="__unset__"
 external_symlink_policy="archive"
@@ -14,6 +15,10 @@ for arg in "$@"; do
     case "$arg" in
         -h|--help)
             echo "Usage: $(basename "$0") [options] [destination]"
+            echo "  --verify-zip=APP  verify zip(s) for a specific app or exact zip file"
+            echo "                    APP forms: Xcode / Xcode.app / /Applications/Xcode.app"
+            echo "                              Xcode.app@15.4.zip / full/path/to/Foo.zip"
+            echo "                    matches all version zips for that app; exits after verifying"
             echo "  --verify-zips     extract and verify all zips against their checksum files"
             echo "  --verify-new      verify only zips/checksums not yet in the checksum index"
             echo "  --verify-changed  verify zips whose index hash differs from current file"
@@ -29,6 +34,9 @@ for arg in "$@"; do
             echo "                    default: archive, with an end-of-run warning summary"
             echo "  destination       archive directory (default: /Users/Shared/App Versions)"
             exit 0 ;;
+        --verify-zip)
+            echo "Error: --verify-zip requires a value: --verify-zip=APP" >&2; exit 1 ;;
+        --verify-zip=*)   verify_zip_arg="${arg#*=}" ;;
         --verify-zips)    verify_mode="zips" ;;
         --verify-new)     verify_mode="new" ;;
         --verify-changed) verify_mode="changed" ;;
@@ -59,6 +67,11 @@ if [[ "$local_cache_arg" != "__unset__" && -n "$local_cache_arg" ]]; then
         echo "Error: --local-cache path must differ from the destination" >&2
         exit 1
     fi
+fi
+
+if [[ -n "$verify_zip_arg" && "$verify_mode" != "none" ]]; then
+    echo "Error: --verify-zip cannot be combined with --verify-zips/--verify-new/--verify-changed" >&2
+    exit 1
 fi
 
 if [[ "$(stat -f "%d" "$dest")" == "$(stat -f "%d" /Applications)" ]]; then
@@ -1002,6 +1015,95 @@ except Exception:
     sys.exit(1)
 PYEOF
 }
+
+_resolve_verify_zip_arg() {
+    local arg="$1" dest="$2"
+    local zippath appname
+
+    # Specific zip file (check before .app tests: "Xcode.app@15.4.zip" ends in .zip)
+    if [[ "$arg" == *.zip ]]; then
+        if [[ "$arg" == */* ]]; then
+            zippath="$arg"
+        else
+            zippath="$dest/$arg"
+        fi
+        if [[ -f "$zippath" ]]; then
+            printf '%s\n' "$zippath"
+            return 0
+        fi
+        echo "Error: zip not found: $zippath" >&2
+        return 1
+    fi
+
+    # Path into a bundle (contains .app/) → extract outer bundle name
+    if [[ "$arg" == *\.app/* ]]; then
+        appname=$(basename "${arg%%.app/*}.app")
+        appname="${appname%.app}"
+    # Ends in .app → strip suffix
+    elif [[ "$arg" == *.app ]]; then
+        appname=$(basename "$arg")
+        appname="${appname%.app}"
+    # Bare app name
+    else
+        appname="$arg"
+    fi
+
+    local found=()
+    while IFS= read -r _z; do found+=("$_z"); done < <(find "$dest" -maxdepth 1 -name "${appname}.app@*.zip" | sort)
+    if [[ ${#found[@]} -eq 0 ]]; then
+        echo "Error: no zips found for app '$appname' in $dest" >&2
+        return 1
+    fi
+    printf '%s\n' "${found[@]}"
+}
+
+if [[ -n "$verify_zip_arg" ]]; then
+    _vz_zips=()
+    _vz_out=$(_resolve_verify_zip_arg "$verify_zip_arg" "$dest") || exit 1
+    while IFS= read -r _l; do [[ -n "$_l" ]] && _vz_zips+=("$_l"); done <<< "$_vz_out"
+
+    total=${#_vz_zips[@]}
+    width=${#total}
+    echo "Verifying $total zip(s) [--verify-zip]…"
+    i=0
+    for zip in "${_vz_zips[@]}"; do
+        i=$(( i + 1 ))
+        printf -v idx '%0*d' "$width" "$i"
+        zipname=$(basename "$zip")
+        checksumfile="${zip%.zip}.checksums.txt"
+        echo "VERIFY $idx/$total: $zipname"
+
+        zip_size=$(du -sh "$zip" | cut -f1)
+        echo "  zip: $zip_size"
+        _czrc=0; actual=$(checksums_from_zip "$zip") || _czrc=$?
+        if [[ $_czrc -eq 1 ]]; then
+            echo "  SKIPPED ⚠️: zip not readable or corrupt"
+            continue
+        elif [[ $_czrc -eq 2 ]]; then
+            _n=$(printf '%s\n' "$actual" | grep -c '^(unreadable)  ' || true)
+            if ! _unreadable_prompt "$zip" "$_n"; then continue; fi
+        fi
+        zip_symlink_count=$(count_symlinks_from_zip "$zip" || true)
+        zip_external_symlinks=$(external_symlinks_from_zip "$zip" || true)
+        if ! _handle_external_symlinks "$zipname" "verify zip" "${zip_symlink_count:-0}" "$zip_external_symlinks"; then
+            continue
+        fi
+
+        if [[ -f "$checksumfile" ]]; then
+            actual_legacy=$(checksums_from_zip "$zip" legacy)
+            if ! _verify_checksum_file_contents "$checksumfile" "$actual" "$actual_legacy"; then
+                _record_verify_failure "$zipname" "checksum file differs"
+                [[ $verify_abort -eq 1 ]] && { echo "  ABORTED ❌: verification failed (--verify-abort)"; _print_verify_failure_summary; exit 1; }
+                continue
+            fi
+        else
+            echo "  CHECKSUM: no checksum file found"
+        fi
+    done
+    _print_verify_failure_summary
+    [[ ${#verify_failure_summary[@]} -eq 0 ]] || exit 1
+    exit 0
+fi
 
 if [[ "$verify_mode" != "none" ]]; then
     index_file="$dest/_checksum_index_.txt"
