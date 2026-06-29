@@ -451,14 +451,6 @@ Also while checking, tell me solutions for preventing to have to copy the files 
 ❯ Nevermind, all appstore apps?
 ❯ Looking good across the first 20. It however still failed for `Velja.app@3.1.1.zip`.
 
-❯ Task Notification:
-> - Task `b5dyyqcfr` <kbd>failed</kbd>
-> - Tool `toolu_01TEvdKNyVJ84CmhaytEZopZ`
-> - > Background command "End-to-end manifest comparison for Velja.app" failed with exit code 1
-> - [Query (`0` chars, `0 B`)](agents/001.b5dyyqcfr/prompt.md)
-> - [Answer (`0` chars, `0 B`)](agents/001.b5dyyqcfr/result.md)
-> - [Raw log (`26915` chars, `26.5 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/5a3cfe6e-8819-4251-a731-0ed779ed8bc4/tasks/b5dyyqcfr.output)
-
 ❯ stop that background run you accidetially triggered, it's still ongoing?!? I can see it spamming `/Users/Shared/App Version` with zip files.
 
 ❯ document your learnings.
