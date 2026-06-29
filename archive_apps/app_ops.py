@@ -7,6 +7,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from .cli import Config, RunContext
@@ -25,6 +26,10 @@ def count_files(path: Path) -> int:
 def archive_workdir_path(archive_stem: str, manifest_hash: str, cfg: Config) -> Path:
     safe = sanitize_temp_component(archive_stem)
     base = cfg.local_cache if cfg.local_cache else cfg.dest
+    if not supports_xattr(base):
+        # workdir must be on an xattr-capable filesystem to preserve resource forks;
+        # fall back to the system temp dir (APFS on macOS)
+        base = Path(tempfile.gettempdir())
     return base / f".archive_apps.{safe}.{manifest_hash}"
 
 
@@ -100,15 +105,11 @@ def count_live_symlinks(app: Path) -> int:
 
 def copy_app_fresh(app: Path, workapp: Path) -> None:
     total = count_files(app)
-    xattr_ok = supports_xattr(workapp.parent)
-    extra = [] if xattr_ok else ["--noextattr", "--norsrc"]
-    if not xattr_ok:
-        print("  COPY WARN: destination filesystem does not support xattrs; resource forks will be omitted", file=sys.stderr)
     if sys.stderr.isatty() and total > 0:
         bar = ProgressBar("COPY", total)
-        run_with_bar(["ditto", "-V"] + extra + [str(app), str(workapp)], bar, drain_ditto_stderr)
+        run_with_bar(["ditto", "-V", str(app), str(workapp)], bar, drain_ditto_stderr)
     else:
-        subprocess.run(["ditto"] + extra + [str(app), str(workapp)], check=True)
+        subprocess.run(["ditto", str(app), str(workapp)], check=True)
 
 
 def repair_app_copy(app: Path, workapp: Path) -> None:
@@ -155,19 +156,17 @@ def archive_app_to_zip(
     ensure_archive_copy(app, versioned, workdir, ctx)
 
     total = count_files(app)
-    xattr_ok = supports_xattr(workdir)
-    rsrc_flag = "--sequesterRsrc" if xattr_ok else "--norsrc"
     if sys.stderr.isatty() and total > 0:
         bar = ProgressBar("ZIP ", total)
         run_with_bar(
-            ["ditto", "-V", "-c", "-k", rsrc_flag, "--keepParent",
+            ["ditto", "-V", "-c", "-k", "--sequesterRsrc", "--keepParent",
              versioned, str(dest_zip)],
             bar, drain_ditto_stderr,
             cwd=workdir,
         )
     else:
         subprocess.run(
-            ["ditto", "-c", "-k", rsrc_flag, "--keepParent",
+            ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
              versioned, str(dest_zip)],
             cwd=str(workdir), check=True,
         )
