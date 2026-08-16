@@ -707,3 +707,28 @@ The `tool` entrypoint makes sense, too.
 
 ❯ Loosing `--keep-temp` is fine.
 
+❯ /plan I'm repeatedly loosing progress in the `_checksum_index_` file. Probably mostly when two versions of the script are running concurrently, i.e. the normal backup and some `--verify-*` variant.
+I tried with backup & rename writes, but apparently those overwrite each other, too.
+Can we make the appending of new items atomic, and the final reorder atomic, too?
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. Right now, if the script finds a leftover `_checksum_index_.txt.tmp` from a crashed/killed run, it interactively asks three yes/no questions (restore? merge? continue?) before merging it in. Once merging becomes lock-protected and inherently safe (last-writer-wins per filename, never destructive), how should leftover scratch files from prior interrupted runs be handled on the next startup?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Recovery UX** (1/1) <kbd>Single Select</kbd><br>
+>> Right now, if the script finds a leftover `_checksum_index_.txt.tmp` from a crashed/killed run, it interactively asks three yes/no questions (restore? merge? continue?) before merging it in. Once merging becomes lock-protected and inherently safe (last-writer-wins per filename, never destructive), how should leftover scratch files from prior interrupted runs be handled on the next startup?
+> - [ ] 1\. Auto-merge silently (Recommended)
+>   - _On startup, any leftover scratch file(s) are merged into the index under the lock automatically, with one summary line printed per file merged, then deleted (kept if --keep-temp). No prompts. Simpler and removes a fragile human-in-the-loop step that partly existed because the old merge wasn't provably safe._
+> - [ ] 2\. Keep interactive prompts, adapted for multiple files
+>   - _Preserve the existing restore/merge/continue prompt sequence, but loop it over every leftover scratch file found (not just one fixed name) since names are now unique per run._
+> - [x] 3\. _Type something:_
+>   - > Auto merge, but be verbose about the changes, and cat the touched files just in case.
+>
+> </details>
+>
+
