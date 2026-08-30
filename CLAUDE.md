@@ -4,31 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`archive_apps.sh` is a macOS-only Bash script that snapshots installed `.app` bundles from `/Applications` into versioned zip archives. It is intended to be run periodically so older app versions can be recovered after updates.
-
-## Running the script
-
-```bash
-# Archive to default destination (/Users/Shared/App Versions)
-./archive_apps.sh
-
-# Archive to a custom destination
-./archive_apps.sh /path/to/destination
-
-# Stage zips on fast local disk, then move to destination (local temp deleted after transfer)
-./archive_apps.sh --local-cache /Volumes/…/data
-
-# --local-cache without a value defaults to /Users/Shared/App Versions
-./archive_apps.sh --local-cache
-
-# Disable local cache explicitly (same as omitting the flag)
-./archive_apps.sh --local-cache=none /Volumes/…/data
-
-# Help
-./archive_apps.sh --help
-```
-
-No build step, no dependencies to install. Requires macOS (`ditto` is a system tool).
+A macOS-only tool that snapshots installed `.app` bundles from `/Applications` into versioned zip archives. It is intended to be run periodically so older app versions can be recovered after updates.
 
 ## Running the Python package
 
@@ -45,6 +21,8 @@ archive-apps [options] [destination]
 ```
 
 The package (`archive_apps/`) and the single-file version (`archive_apps.py`) coexist; both implement the identical CLI. `archive_apps.py` is kept as a standalone fallback.
+
+(The original `archive_apps.sh` Bash implementation has been removed — the Python package is the actively developed version going forward.)
 
 ### Package layout
 
@@ -68,7 +46,7 @@ pyproject.toml  [project.scripts] archive-apps = "archive_apps.__main__:main"
 The script processes each `*.app` under `/Applications` (up to depth 2) in a single `while` loop:
 
 1. **Locate Info.plist** — checks `Contents/Info.plist` first; falls back to `WrappedBundle/Info.plist` for iOS-on-Mac apps (which get a `mobile@` infix in the filename).
-2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib` (Python package) or `PlistBuddy` (shell script).
+2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib` (Python package) or `PlistBuddy` (single-file `archive_apps.py`).
 3. **Check if zip already exists** at `{dest}/{AppName}.app@[mobile@]{version}.zip`:
    - If the zip exists and a matching `.checksums.txt` also exists → skip entirely.
    - If the zip exists but the checksums file is missing → extract the zip to a temp dir, compute checksums for both the extracted copy and the live app, compare:
