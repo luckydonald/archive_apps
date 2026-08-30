@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
+import fcntl
 import hashlib
 import locale
 import os
@@ -15,10 +17,12 @@ import random
 import re
 import shutil
 import signal
+import socket
 import stat
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import zipfile
@@ -147,6 +151,7 @@ _cfg: Config          # set in main()
 _preserve_tmps: list[Path] = []
 _verify_failure_summary: list[tuple[str, str]] = []
 _external_symlink_summary: list[str] = []
+_index_scratch: Path | None = None    # this run's private checksum-index scratch file, if any
 
 
 # ---------------------------------------------------------------------------
@@ -471,15 +476,9 @@ def _cleanup() -> None:
     except NameError:
         return
 
-    index_tmp = cfg.dest / "_checksum_index_.txt.tmp"
-    if index_tmp.exists():
+    if _index_scratch is not None:
         try:
-            subprocess.run(
-                ["sort", "-k2", str(index_tmp), "-o", str(index_tmp)],
-                check=False,
-            )
-            if not cfg.keep_temp:
-                index_tmp.unlink(missing_ok=True)
+            merge_checksum_index(_index_scratch)
         except Exception:
             pass
 
@@ -1109,6 +1108,217 @@ def _print_verify_failure_summary() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Checksum index: locking + merge
+#
+# The destination can be local disk or a NAS mounted over SMB/NFS. flock-
+# style byte-range locks depend on the network filesystem correctly
+# implementing them; some configurations silently no-op rather than
+# erroring, which would defeat the whole scheme with no visible failure.
+# mkdir (atomic create-or-fail) is reliably atomic on essentially any
+# filesystem, so it's used as the fallback for anything not recognized as
+# local — at the cost of needing a staleness timeout instead of relying on
+# the OS to release the lock when a process dies.
+# ---------------------------------------------------------------------------
+
+_LOCK_LOCAL_FSTYPES = {"apfs", "hfs"}
+_LOCK_STALE_SECONDS = 5 * 60
+_LOCK_ACQUIRE_TIMEOUT = 60
+_LOCK_POLL_INTERVAL = 1
+_INDEX_BACKUP_KEEP = 5
+
+
+def _dest_fstype(path: Path) -> str:
+    """Best-effort filesystem type name for path (e.g. 'apfs', 'smbfs', 'nfs').
+
+    macOS exposes no clean API for this; parse `mount`'s output instead."""
+    try:
+        out = subprocess.run(["mount"], capture_output=True, text=True, check=True).stdout
+    except Exception:
+        return ""
+    resolved = str(path.resolve())
+    best_type, best_len = "", -1
+    for line in out.splitlines():
+        if " on " not in line or "(" not in line:
+            continue
+        mnt, _, rest = line.split(" on ", 1)[1].partition(" (")
+        mnt = mnt.rstrip("/")
+        if resolved != mnt and not resolved.startswith(mnt + "/"):
+            continue
+        if len(mnt) <= best_len:
+            continue
+        best_len = len(mnt)
+        best_type = rest.split(",", 1)[0].strip().rstrip(")")
+    return best_type
+
+
+@contextlib.contextmanager
+def _flock_lock(dest: Path):
+    lockfile = dest / "_checksum_index_.flock"
+    try:
+        fh = open(lockfile, "a")
+    except OSError:
+        yield False
+        return
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+    except OSError:
+        fh.close()
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+        finally:
+            fh.close()
+
+
+def _rm_lockdir(lockdir: Path) -> None:
+    try:
+        for child in lockdir.iterdir():
+            child.unlink(missing_ok=True)
+        lockdir.rmdir()
+    except OSError:
+        pass
+
+
+@contextlib.contextmanager
+def _mkdir_lock(dest: Path):
+    lockdir = dest / "_checksum_index_.lockdir"
+    deadline = time.monotonic() + _LOCK_ACQUIRE_TIMEOUT
+    while True:
+        try:
+            os.mkdir(lockdir)
+            break
+        except FileExistsError:
+            pass
+        try:
+            age = time.time() - lockdir.stat().st_mtime
+        except OSError:
+            continue
+        if age > _LOCK_STALE_SECONDS:
+            print(f"LOCK: breaking stale lock {lockdir.name} ({age:.0f}s old)", file=sys.stderr)
+            _rm_lockdir(lockdir)
+            continue
+        if time.monotonic() > deadline:
+            raise TimeoutError(
+                f"could not acquire checksum-index lock at {lockdir} within {_LOCK_ACQUIRE_TIMEOUT}s"
+            )
+        time.sleep(_LOCK_POLL_INTERVAL)
+
+    try:
+        (lockdir / "info").write_text(
+            f"pid={os.getpid()}\nhost={socket.gethostname()}\ntime={time.strftime('%Y-%m-%dT%H:%M:%S')}\n"
+        )
+    except OSError:
+        pass
+
+    try:
+        yield
+    finally:
+        _rm_lockdir(lockdir)
+
+
+@contextlib.contextmanager
+def checksum_index_lock(dest: Path):
+    if _dest_fstype(dest) in _LOCK_LOCAL_FSTYPES:
+        with _flock_lock(dest) as ok:
+            if ok:
+                yield
+                return
+    with _mkdir_lock(dest):
+        yield
+
+
+def _parse_index_lines(text: str) -> dict[str, str]:
+    """Parse '<hash>  <filename>' lines into {filename: hash}.
+
+    Split on the first two-space run only — app names can contain spaces
+    (e.g. "Google Chrome.app@…"), so splitting on whitespace/field 2 alone
+    would break the key."""
+    entries: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line:
+            continue
+        hash_part, sep, name = line.partition("  ")
+        if not sep:
+            continue
+        entries[name] = hash_part
+    return entries
+
+
+def merge_checksum_index(scratch_file: Path) -> None:
+    """Merge scratch_file's (hash, filename) entries into the shared checksum
+    index under a lock, keyed by filename with scratch entries winning on
+    conflict. A hash replacement is never silently dropped — it's recorded
+    to a history log and printed — and the index is snapshotted before each
+    overwrite, so nothing here is destructive even if this logic has a bug."""
+    if not scratch_file.exists():
+        return
+    incoming = _parse_index_lines(scratch_file.read_text())
+    if not incoming:
+        if not _cfg.keep_temp:
+            scratch_file.unlink(missing_ok=True)
+        return
+
+    index_file = _cfg.dest / "_checksum_index_.txt"
+    history_file = _cfg.dest / "_checksum_index_.history.log"
+
+    with checksum_index_lock(_cfg.dest):
+        current = _parse_index_lines(index_file.read_text()) if index_file.exists() else {}
+        merged = dict(current)
+        added = updated = 0
+        history_lines: list[str] = []
+        for name, new_hash in incoming.items():
+            old_hash = current.get(name)
+            if old_hash is None:
+                added += 1
+            elif old_hash != new_hash:
+                updated += 1
+                ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+                history_lines.append(f"[{ts}] {name}: {old_hash} -> {new_hash}")
+                print(f"  HASH CHANGED: {name}: {old_hash} -> {new_hash}")
+            merged[name] = new_hash
+        unchanged = len(incoming) - added - updated
+
+        if added == 0 and updated == 0:
+            print(f"INDEX: unchanged → {index_file.name} ({unchanged} already current)")
+        else:
+            if history_lines:
+                with open(history_file, "a") as f:
+                    for line in history_lines:
+                        f.write(line + "\n")
+
+            if index_file.exists():
+                ts = time.strftime("%Y-%m-%d_%H-%M-%S")
+                disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
+                backup = _cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
+                index_file.rename(backup)
+
+            lines = [f"{h}  {n}" for n, h in merged.items()]
+            lines.sort(key=lambda line: line.split(None, 1)[-1])
+            fd, tmp_path = tempfile.mkstemp(
+                prefix="_checksum_index_.", suffix=".tmp", dir=str(_cfg.dest)
+            )
+            os.close(fd)
+            Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
+            Path(tmp_path).rename(index_file)
+
+            if not _cfg.keep_temp:
+                for old_backup in sorted(_cfg.dest.glob("_checksum_index_.*.bak"))[:-_INDEX_BACKUP_KEEP]:
+                    old_backup.unlink(missing_ok=True)
+
+            print(
+                f"INDEX: written → {index_file.name} "
+                f"({added} added, {updated} updated, {unchanged} unchanged)"
+            )
+
+    if not _cfg.keep_temp:
+        scratch_file.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
 # --verify-zip (spot-check one app)
 # ---------------------------------------------------------------------------
 
@@ -1195,45 +1405,29 @@ def run_verify_zip() -> None:
 # ---------------------------------------------------------------------------
 
 def run_verify_all() -> None:
+    global _index_scratch
     index_file = _cfg.dest / "_checksum_index_.txt"
-    index_tmp = _cfg.dest / "_checksum_index_.txt.tmp"
 
-    if index_tmp.exists():
-        print(f"RECOVERY: Found leftover temp file: {index_tmp.name}")
-        ans = _tty_read("  Restore it? [Y/n]: ", "n")
-        if ans.lower() not in ("n", ""):
-            rc_live = len(index_file.read_text().splitlines()) if index_file.exists() else 0
-            ans2 = _tty_read(f"  Existing file: {rc_live} lines. Merge? [Y/n]: ", "n")
-            if ans2.lower() not in ("n", ""):
-                tmp_lines_text = index_tmp.read_text().splitlines()
-                live_lines_text = index_file.read_text().splitlines() if index_file.exists() else []
-                merged = sorted(set(tmp_lines_text + live_lines_text))
-                rc_tmp = len(tmp_lines_text)
-                rc_dup = rc_tmp + rc_live - len(merged)
-                print(f"  Temporary file: {rc_tmp} lines")
-                print(f"  Existing file:  {rc_live} lines")
-                print(f"  Merge duplicates: {rc_dup} lines")
-                print(f"  Resulting file: {len(merged)} lines")
-                ans3 = _tty_read("  Continue? [Y/n]: ", "n")
-                if ans3.lower() not in ("n", ""):
-                    import tempfile
-                    fd, tmp_path = tempfile.mkstemp(
-                        prefix="_checksum_index_.", suffix=".tmp", dir=str(_cfg.dest)
-                    )
-                    os.close(fd)
-                    Path(tmp_path).write_text("\n".join(merged) + "\n")
-                    safe_mv(Path(tmp_path), index_file)
-                    print("  RECOVERY ✅: merged and written")
-                    ans4 = _tty_read("  Delete temp file? [Y/n]: ", "n")
-                    if ans4.lower() not in ("n", ""):
-                        index_tmp.unlink(missing_ok=True)
-                        print("  RECOVERY: temp file deleted")
+    for leftover in sorted(_cfg.dest.glob("_checksum_index_.*.tmp")):
+        try:
+            content = leftover.read_text()
+        except OSError:
+            continue
+        print(f"RECOVERY: found leftover scratch file {leftover.name} ({len(content.splitlines())} lines)")
+        if content:
+            print(content, end="" if content.endswith("\n") else "\n")
+        merge_checksum_index(leftover)
 
     try:
-        index_tmp.write_text("")
-    except Exception:
-        print(f"ERROR: cannot create index file at {index_tmp} — check that {index_tmp.parent} is writable", file=sys.stderr)
+        fd, scratch_path = tempfile.mkstemp(
+            prefix="_checksum_index_.", suffix=".tmp", dir=str(_cfg.dest)
+        )
+        os.close(fd)
+    except OSError:
+        print(f"ERROR: cannot create index scratch file in {_cfg.dest} — check that it is writable", file=sys.stderr)
         sys.exit(1)
+    index_tmp = Path(scratch_path)
+    _index_scratch = index_tmp
 
     # TODO: replace find with Path.glob
     r = subprocess.run(
@@ -1363,12 +1557,8 @@ def run_verify_all() -> None:
             cs_hash = r5.stdout.split()[0] if r5.returncode == 0 else ""
             safe_append(f"{cs_hash}  {checksumname}", index_tmp)
 
-    subprocess.run(
-        ["sort", "-k2", str(index_tmp), "-o", str(index_tmp)],
-        check=False,
-    )
-    safe_mv(index_tmp, index_file)
-    print(f"INDEX: written → {index_file.name}")
+    merge_checksum_index(index_tmp)
+    _index_scratch = None
     _print_verify_failure_summary()
 
 

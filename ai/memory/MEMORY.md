@@ -5,10 +5,10 @@
 - [Markdown line wrap](feedback_md_line_wrap_style.md) — wrap prose at sentence ends, not a fixed column; read the code-style `md.md` before writing any `.md`, plans included
 - [File deletion policy](feedback_file_deletion.md) — `git rm` for tracked files; rename untracked ones to `*.YYYY-MM-DD.bak.ext`
 - [Scripts in Python+uv](feedback_scripts_python_uv.md) — new scripts and hooks: Python with a `uv run --script` shebang, not bash
-- [Don't source archive_apps.sh for testing](feedback_testing_archive_apps.md) — sourcing runs the full main loop immediately; test Python heredocs inline instead
+- [Testing archive_apps.py / archive_apps/ safely](feedback_testing_archive_apps.md) — import-shadowing gotcha for the single-file version; main() is guarded so plain import is safe
 - [ditto zip filenames are UTF-8 without the UTF-8 flag → CP437 garbling](project_ditto_zip_cp437.md) — fixed 2026-06-22; use _fix_zip_name() pattern for any zip filename handling
 - [checksums_from_zip locale sort mismatch](project_checksums_locale_sort.md) — fixed 2026-06-22; always pin LC_COLLATE to 'C' in manifest-comparison code
-- [commit conventions](feedback_commit_conventions.md) — TODO: summarize this file.
-- [design preferences](feedback_design_preferences.md) — TODO: summarize this file.
-- [project checksum index concurrency fix](project_checksum_index_concurrency_fix.md) — TODO: summarize this file.
-- [project shell script removed](project_shell_script_removed.md) — TODO: summarize this file.
+- [archive_apps.sh removed](project_shell_script_removed.md) — 2026-08-30; Python package/single-file are now the only implementations
+- [Checksum-index concurrency fix](project_checksum_index_concurrency_fix.md) — 2026-08-30; lock+merge design, see archive_apps/lock.py
+- [Commit conventions in this repo](feedback_commit_conventions.md) — no Co-Authored-By trailer; ai-settings-sync pre-commit hook
+- [Data-handling design preferences](feedback_design_preferences.md) — non-destructive by default, distrust network-fs guarantees, plain output over cosmetic tooling

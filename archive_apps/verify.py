@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import random
 import sys
 import tempfile
 import time
@@ -8,8 +9,11 @@ from pathlib import Path
 
 from .cli import RunContext
 from .io import safe_append, safe_mv, safe_write, tty_read
+from .lock import checksum_index_lock
 from .utils import fmt_size, sha256_file
 from .zip_ops import checksums_from_zip, count_symlinks_from_zip, external_symlinks_from_zip
+
+_INDEX_BACKUP_KEEP = 5
 
 
 def record_verify_failure(zipname: str, reason: str, ctx: RunContext) -> None:
@@ -187,50 +191,123 @@ def run_verify_zip(ctx: RunContext) -> None:
     sys.exit(0)
 
 
+def _parse_index_lines(text: str) -> dict[str, str]:
+    """Parse '<hash>  <filename>' lines into {filename: hash}.
+
+    Split on the first two-space run only — app names can contain spaces
+    (e.g. "Google Chrome.app@…"), so splitting on whitespace/field 2 alone
+    would break the key.
+    """
+    entries: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line:
+            continue
+        hash_part, sep, name = line.partition("  ")
+        if not sep:
+            continue
+        entries[name] = hash_part
+    return entries
+
+
+def merge_checksum_index(scratch_file: Path, ctx: RunContext) -> None:
+    """Merge scratch_file's (hash, filename) entries into the shared checksum
+    index under a lock, keyed by filename with scratch entries winning on
+    conflict. A hash replacement is never silently dropped — it's recorded
+    to a history log and printed — and the index is snapshotted before each
+    overwrite, so nothing here is destructive even if this logic has a bug.
+    """
+    cfg = ctx.cfg
+    if not scratch_file.exists():
+        return
+    incoming = _parse_index_lines(scratch_file.read_text())
+    if not incoming:
+        if not cfg.keep_temp:
+            scratch_file.unlink(missing_ok=True)
+        return
+
+    index_file = cfg.dest / "_checksum_index_.txt"
+    history_file = cfg.dest / "_checksum_index_.history.log"
+
+    with checksum_index_lock(cfg.dest):
+        current = _parse_index_lines(index_file.read_text()) if index_file.exists() else {}
+        merged = dict(current)
+        added = updated = 0
+        history_lines: list[str] = []
+        for name, new_hash in incoming.items():
+            old_hash = current.get(name)
+            if old_hash is None:
+                added += 1
+            elif old_hash != new_hash:
+                updated += 1
+                ts = time.strftime("%Y-%m-%dT%H:%M:%S")
+                history_lines.append(f"[{ts}] {name}: {old_hash} -> {new_hash}")
+                print(f"  HASH CHANGED: {name}: {old_hash} -> {new_hash}")
+            merged[name] = new_hash
+        unchanged = len(incoming) - added - updated
+
+        if added == 0 and updated == 0:
+            print(f"INDEX: unchanged → {index_file.name} ({unchanged} already current)")
+        else:
+            if history_lines:
+                with open(history_file, "a") as f:
+                    for line in history_lines:
+                        f.write(line + "\n")
+
+            if index_file.exists():
+                ts = time.strftime("%Y-%m-%d_%H-%M-%S")
+                disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
+                backup = cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
+                index_file.rename(backup)
+
+            lines = [f"{h}  {n}" for n, h in merged.items()]
+            lines.sort(key=lambda line: line.split(None, 1)[-1])
+            fd, tmp_path = tempfile.mkstemp(
+                prefix="_checksum_index_.", suffix=".tmp", dir=str(cfg.dest)
+            )
+            os.close(fd)
+            Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
+            Path(tmp_path).rename(index_file)
+
+            if not cfg.keep_temp:
+                for old_backup in sorted(cfg.dest.glob("_checksum_index_.*.bak"))[:-_INDEX_BACKUP_KEEP]:
+                    old_backup.unlink(missing_ok=True)
+
+            print(
+                f"INDEX: written → {index_file.name} "
+                f"({added} added, {updated} updated, {unchanged} unchanged)"
+            )
+
+    if not cfg.keep_temp:
+        scratch_file.unlink(missing_ok=True)
+
+
 def run_verify_all(ctx: RunContext) -> None:
     cfg = ctx.cfg
     index_file = cfg.dest / "_checksum_index_.txt"
-    index_tmp = cfg.dest / "_checksum_index_.txt.tmp"
 
-    if index_tmp.exists():
-        print(f"RECOVERY: Found leftover temp file: {index_tmp.name}")
-        ans = tty_read("  Restore it? [Y/n]: ", "n")
-        if ans.lower() not in ("n", ""):
-            rc_live = len(index_file.read_text().splitlines()) if index_file.exists() else 0
-            ans2 = tty_read(f"  Existing file: {rc_live} lines. Merge? [Y/n]: ", "n")
-            if ans2.lower() not in ("n", ""):
-                tmp_lines_text = index_tmp.read_text().splitlines()
-                live_lines_text = index_file.read_text().splitlines() if index_file.exists() else []
-                merged = sorted(set(tmp_lines_text + live_lines_text))
-                rc_tmp = len(tmp_lines_text)
-                rc_dup = rc_tmp + rc_live - len(merged)
-                print(f"  Temporary file: {rc_tmp} lines")
-                print(f"  Existing file:  {rc_live} lines")
-                print(f"  Merge duplicates: {rc_dup} lines")
-                print(f"  Resulting file: {len(merged)} lines")
-                ans3 = tty_read("  Continue? [Y/n]: ", "n")
-                if ans3.lower() not in ("n", ""):
-                    fd, tmp_path = tempfile.mkstemp(
-                        prefix="_checksum_index_.", suffix=".tmp", dir=str(cfg.dest)
-                    )
-                    os.close(fd)
-                    Path(tmp_path).write_text("\n".join(merged) + "\n")
-                    safe_mv(Path(tmp_path), index_file, ctx)
-                    print("  RECOVERY ✅: merged and written")
-                    ans4 = tty_read("  Delete temp file? [Y/n]: ", "n")
-                    if ans4.lower() not in ("n", ""):
-                        index_tmp.unlink(missing_ok=True)
-                        print("  RECOVERY: temp file deleted")
+    for leftover in sorted(cfg.dest.glob("_checksum_index_.*.tmp")):
+        try:
+            content = leftover.read_text()
+        except OSError:
+            continue
+        print(f"RECOVERY: found leftover scratch file {leftover.name} ({len(content.splitlines())} lines)")
+        if content:
+            print(content, end="" if content.endswith("\n") else "\n")
+        merge_checksum_index(leftover, ctx)
 
     try:
-        index_tmp.write_text("")
-    except Exception:
+        fd, scratch_path = tempfile.mkstemp(
+            prefix="_checksum_index_.", suffix=".tmp", dir=str(cfg.dest)
+        )
+        os.close(fd)
+    except OSError:
         print(
-            f"ERROR: cannot create index file at {index_tmp}"
-            f" — check that {index_tmp.parent} is writable",
+            f"ERROR: cannot create index scratch file in {cfg.dest} — check that it is writable",
             file=sys.stderr,
         )
         sys.exit(1)
+    index_tmp = Path(scratch_path)
+    ctx.index_scratch = index_tmp
 
     zips = sorted(cfg.dest.glob("*.zip"))
     total = len(zips)
@@ -334,10 +411,6 @@ def run_verify_all(ctx: RunContext) -> None:
             cs_hash = sha256_file(checksumfile)
             safe_append(f"{cs_hash}  {checksumname}", index_tmp, ctx)
 
-    # Sort by filename (second whitespace-delimited field), matching 'sort -k2'
-    lines = [l for l in index_tmp.read_text().splitlines() if l]
-    lines.sort(key=lambda line: line.split(None, 1)[-1])
-    index_tmp.write_text("\n".join(lines) + "\n")
-    safe_mv(index_tmp, index_file, ctx)
-    print(f"INDEX: written → {index_file.name}")
+    merge_checksum_index(index_tmp, ctx)
+    ctx.index_scratch = None
     print_verify_failure_summary(ctx)

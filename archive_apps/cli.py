@@ -22,6 +22,7 @@ class RunContext:
     preserve_tmps: list[Path] = field(default_factory=list)
     verify_failure_summary: list[tuple[str, str]] = field(default_factory=list)
     external_symlink_summary: list[str] = field(default_factory=list)
+    index_scratch: Path | None = None  # this run's private checksum-index scratch file, if any
 
 
 def parse_args(argv: list[str]) -> Config:
