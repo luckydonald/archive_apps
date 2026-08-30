@@ -10,20 +10,15 @@ from typing import Callable
 from .archive import run_archive
 from .cli import RunContext, parse_args
 from .io import rm_retry
-from .verify import run_verify_all, run_verify_zip
+from .verify import merge_checksum_index, run_verify_all, run_verify_zip
 
 
 def _make_cleanup(ctx: RunContext) -> Callable[[], None]:
     def _cleanup() -> None:
         cfg = ctx.cfg
-        index_tmp = cfg.dest / "_checksum_index_.txt.tmp"
-        if index_tmp.exists():
+        if ctx.index_scratch is not None:
             try:
-                lines = [l for l in index_tmp.read_text().splitlines() if l]
-                lines.sort(key=lambda line: line.split(None, 1)[-1])
-                index_tmp.write_text("\n".join(lines) + "\n")
-                if not cfg.keep_temp:
-                    index_tmp.unlink(missing_ok=True)
+                merge_checksum_index(ctx.index_scratch, ctx)
             except Exception:
                 pass
 

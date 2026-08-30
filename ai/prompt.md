@@ -732,3 +732,78 @@ Can we make the appending of new items atomic, and the final reorder atomic, too
 > </details>
 >
 
+❯ Question answered.
+> <details><summary>
+>
+>> 1. Scope: archive_apps.sh is slated for removal since the Python package is the future. For this fix, what should happen to it?
+>> 2. Your destination can be a NAS over Samba/SMB. lockf/flock rely on the network filesystem correctly implementing byte-range advisory locking — SMB2+ supports this in the protocol, but some NAS/Samba server configs (older SMB1, certain mount options, some NAS firmware) silently no-op or fail it, which would silently defeat the whole locking scheme with no error. mkdir-based locking (a lock directory, atomic create-or-fail) is guaranteed atomic on essentially any filesystem including SMB/NFS, since directory creation atomicity is much more universally reliable than byte-range locks — but it doesn't auto-release on a killed process, so it needs a staleness timeout (e.g. break a lock older than N minutes) instead of relying on the OS to release it.
+>> 3. When a merge finds the same filename key with a different hash than what's already stored (e.g. a zip was legitimately re-verified and its content changed), how should the index represent that?
+>> 4. Extra safety net: before a merge overwrites _checksum_index_.txt, should the prior version be preserved as a timestamped backup file (e.g. _checksum_index_.2026-08-30_14-03-01.bak) rather than just replaced?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Shell script scope** (1/4) <kbd>Single Select</kbd><br>
+>> Scope: archive_apps.sh is slated for removal since the Python package is the future. For this fix, what should happen to it?
+> - [ ] 1\. Leave .sh unfixed (Recommended)
+>   - _Don't touch archive_apps.sh at all — it keeps the current bug, but since it's going away anyway there's no point fixing dead-end code. Only fix archive_apps.py and the archive_apps/ package._
+> - [ ] 2\. Delete .sh now, as part of this change
+>   - _Remove archive_apps.sh (and update CLAUDE.md's description of it) in this same piece of work, then only fix archive_apps.py and the package._
+> - [ ] 3\. Fix it too
+>   - _Keep all three implementations in sync as CLAUDE.md currently documents, and apply the same fix to archive_apps.sh as well._
+> - [x] 4\. _Type something:_
+>   - > Delete now, but as proper separate scoped commit.
+>
+>> **Locking mechanism** (2/4) <kbd>Single Select</kbd><br>
+>> Your destination can be a NAS over Samba/SMB. lockf/flock rely on the network filesystem correctly implementing byte-range advisory locking — SMB2+ supports this in the protocol, but some NAS/Samba server configs (older SMB1, certain mount options, some NAS firmware) silently no-op or fail it, which would silently defeat the whole locking scheme with no error. mkdir-based locking (a lock directory, atomic create-or-fail) is guaranteed atomic on essentially any filesystem including SMB/NFS, since directory creation atomicity is much more universally reliable than byte-range locks — but it doesn't auto-release on a killed process, so it needs a staleness timeout (e.g. break a lock older than N minutes) instead of relying on the OS to release it.
+> - [ ] 1\. mkdir-based lock with staleness timeout (Recommended)
+>   - _Portable across local disk, SMB, and NFS destinations without relying on the server correctly supporting byte-range locking. Tradeoff: a lock from a truly killed process only clears after the staleness timeout elapses, not instantly._
+> - [ ] 2\. lockf/flock
+>   - _Simpler, auto-releases instantly on process death (even SIGKILL) with no timeout needed — but its correctness over your NAS/Samba mount can't be verified from here, and a silent no-op would mean no real protection at all._
+> - [x] 3\. _Type something:_
+>   - > Can we do both, falling back to dir if needed?
+>
+>> **Hash-change handling** (3/4) <kbd>Single Select</kbd><br>
+>> When a merge finds the same filename key with a different hash than what's already stored (e.g. a zip was legitimately re-verified and its content changed), how should the index represent that?
+> - [ ] 1\. Keep both lines as history, plus a loud warning (Recommended)
+>   - _Never drop a differing entry — append the new hash as an additional line for that filename (so the index becomes an append-only ledger for that key), and print a clear "HASH CHANGED: <file>: <old> → <new>" message. Lookups (--verify-new/--verify-changed) use the most recent entry for a key. True exact duplicates (same hash, same file) still collapse to one line._
+> - [ ] 2\. Dedupe to one line per key, last-write-wins, with a warning
+>   - _Simpler file format (still exactly one line per filename, easy grep/lookup) — but the prior hash is only visible in the warning printed at merge time, not preserved in the file afterward._
+> - [x] 3\. _Type something:_
+>   - > Add a previous hash file, where it is documented with replace time and new hash like a log
+>
+>> **Index backups** (4/4) <kbd>Single Select</kbd><br>
+>> Extra safety net: before a merge overwrites _checksum_index_.txt, should the prior version be preserved as a timestamped backup file (e.g. _checksum_index_.2026-08-30_14-03-01.bak) rather than just replaced?
+> - [ ] 1\. Yes, keep every prior version, unbounded (Recommended)
+>   - _Each merge renames the current index_file to a timestamped .bak before writing the new merged version. Files are small text, so no pruning — simplest and safest, but .bak files accumulate over time in the destination directory._
+> - [ ] 2\. Yes, but only keep the last few
+>   - _Same timestamped backup on every merge, but prune down to the most recent N (e.g. 5) afterward so the destination directory doesn't accumulate .bak files indefinitely._
+> - [ ] 3\. No, rely on the merge itself being safe
+>   - _Skip the backup-before-overwrite step; the lock-protected merge-and-atomic-rename is already non-destructive by construction, so no separate .bak snapshot is kept._
+> - [x] 4\. _Type something:_
+>   - > Keep the last 5, unless --keep is specified then dont prune
+>
+> </details>
+>
+
+❯ Question canceled (chat about this).
+> <details><summary>
+>
+>> 1. I found the root cause: the checksum index uses one fixed-name scratch file (`_checksum_index_.txt.tmp`) shared by every concurrent invocation, plus a blind overwrite at the end — so any two runs sharing a destination (backup + verify, or two verifies) stomp on each other's progress, and a plain archive run's exit cleanup even sorts/deletes a verify run's in-progress scratch file out from under it. My fix: give each run's scratch file a unique, PID-tagged name (so appends are naturally private, no lock needed), and use a real OS file lock (`lockf` in bash, `fcntl.flock` in Python) around the one step that touches the shared index file — merging a run's scratch entries into it, keyed by filename so the freshest hash always wins, then an atomic rename. This also lets a crashed run's orphaned scratch file be recovered later by checking whether its owning PID is still alive. Given this, should the leftover-scratch-file recovery at the start of a verify run stay interactive (current 3-step Y/n prompt) or become automatic?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Recovery UX** (1/1) <kbd>Single Select</kbd><br>
+>> I found the root cause: the checksum index uses one fixed-name scratch file (`_checksum_index_.txt.tmp`) shared by every concurrent invocation, plus a blind overwrite at the end — so any two runs sharing a destination (backup + verify, or two verifies) stomp on each other's progress, and a plain archive run's exit cleanup even sorts/deletes a verify run's in-progress scratch file out from under it. My fix: give each run's scratch file a unique, PID-tagged name (so appends are naturally private, no lock needed), and use a real OS file lock (`lockf` in bash, `fcntl.flock` in Python) around the one step that touches the shared index file — merging a run's scratch entries into it, keyed by filename so the freshest hash always wins, then an atomic rename. This also lets a crashed run's orphaned scratch file be recovered later by checking whether its owning PID is still alive. Given this, should the leftover-scratch-file recovery at the start of a verify run stay interactive (current 3-step Y/n prompt) or become automatic?
+> - [ ] 1\. Automatic merge (recommended)
+>   - _Silently merges any dead-owner leftover scratch file into the index under lock (this is now provably safe/lossless), prints one summary line, and removes it. No prompts._
+> - [ ] 2\. Keep interactive prompts
+>   - _Preserve today's Restore? / Merge? / Continue? / Delete? sequence, adapted to loop over possibly-multiple leftover scratch files instead of just one._
+> - [ ] 3\. _Type something._
+>
+> </details>
+>
+
