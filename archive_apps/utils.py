@@ -75,3 +75,12 @@ def sanitize_temp_component(value: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9.@_-]+", "_", value)
     value = value.strip("_")
     return value or "app"
+
+
+def now_suffix() -> str:
+    return time.strftime("%Y%m%d_%H%M%S")
+
+
+def tagged_names(name: str, mobile: str, version: str, tag: str) -> tuple[str, str]:
+    stem = f"{name}.app@{mobile}{version}~{tag}"
+    return f"{stem}.zip", f"{stem}.checksums.txt"

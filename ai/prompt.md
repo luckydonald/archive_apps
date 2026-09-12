@@ -807,3 +807,56 @@ Can we make the appending of new items atomic, and the final reorder atomic, too
 > </details>
 >
 
+❯ /plan currently on mismatch there's a _both_ option, adding the current verion as timestamped duplicate. That means it will missmatch again next crawl. After the new version is written, ask if we should swap them out, timestamping the old version and adding `~hash-missmatch`, e.g. `Telegram.app@12.7~hash-missmatch~20260602_032921.zip`.
+
+❯ Task Notification:
+> - Task `aeb3789452bd1046c` <kbd>completed</kbd>
+> - Tool `toolu_01UNN8EsGmSK72nrJu7JJ9JF`
+> - > Agent "Find mismatch/both-option handling code" finished
+> - [Query (`2633` chars, `2.58 KB`)](output/agents/010.aeb3789452bd1046c/prompt.md)
+> - [Answer (`19142` chars, `18.8 KB`)](output/agents/010.aeb3789452bd1046c/result.md)
+> - [Raw log (`276924` chars, `271 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/c80450cb-34c8-412f-86db-e0e4b4a765a2/tasks/aeb3789452bd1046c.output)
+> - `11` tools, `54145` tokens, `1.629 s`
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. Which spelling should the new filename tag use? Your example wrote "hash-missmatch" (double s) both times.
+>> 2. There are two near-identical [b]oth code paths in archive.py: one when the .checksums.txt already existed but didn't match (line ~97-109), and one when it was missing and gets reconstructed from the zip (line ~139-152). Both leave the canonical-named pair pointing at stale content, so both would re-mismatch next crawl. Should the new swap prompt apply to both, or just the 'checksums missing' case you described?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Tag spelling** (1/2) <kbd>Single Select</kbd><br>
+>> Which spelling should the new filename tag use? Your example wrote "hash-missmatch" (double s) both times.
+> - [ ] 1\. hash-missmatch (Recommended)
+>   - _Matches your example exactly: Telegram.app@12.7~hash-missmatch~20260602_032921.zip_
+> - [x] 2\. hash-mismatch
+>   - _Standard spelling, in case the double-s was a typo_
+> - [ ] 3\. _Type something._
+>
+>> **Scope** (2/2) <kbd>Single Select</kbd><br>
+>> There are two near-identical [b]oth code paths in archive.py: one when the .checksums.txt already existed but didn't match (line ~97-109), and one when it was missing and gets reconstructed from the zip (line ~139-152). Both leave the canonical-named pair pointing at stale content, so both would re-mismatch next crawl. Should the new swap prompt apply to both, or just the 'checksums missing' case you described?
+> - [x] 1\. Both branches (Recommended)
+>   - _Fixes the same underlying bug in both mismatch code paths for consistent behavior_
+> - [ ] 2\. Only checksums-missing branch
+>   - _Matches your description literally; the other branch keeps today's [b]oth behavior unchanged_
+> - [ ] 3\. _Type something._
+>
+> </details>
+>
+
+❯ Task Notification:
+> - Task `a19e8ce730086917c` <kbd>completed</kbd>
+> - Tool `toolu_014pPYJNSwULGWJmK41ujYiJ`
+> - > Agent "Design hash-mismatch swap feature" finished
+> - [Query (`12765` chars, `12.5 KB`)](output/agents/011.a19e8ce730086917c/prompt.md)
+> - [Answer (`18347` chars, `18 KB`)](output/agents/011.a19e8ce730086917c/result.md)
+> - [Raw log (`229916` chars, `225 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/c80450cb-34c8-412f-86db-e0e4b4a765a2/tasks/a19e8ce730086917c.output)
+> - `14` tools, `55770` tokens, `3.0524 s`
+
+❯ /plan currently on mismatch there's a _both_ option, adding the current verion as timestamped duplicate. That means it will missmatch again next crawl. After the new version is written, ask if we should swap them out, timestamping the old version and adding `~hash-missmatch`, e.g. `Telegram.app@12.7~hash-missmatch~20260602_032921.zip`.
+
+❯ Check python code style
+
