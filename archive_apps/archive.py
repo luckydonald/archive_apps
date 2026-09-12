@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import plistlib
 import random
-import time
 from pathlib import Path
 
 from .app_ops import (
     archive_and_store_zip, collect_app_manifest, collect_external_live_symlinks,
-    count_live_symlinks, delete_validated_workdir, remove_zip, write_checksums,
+    count_live_symlinks, delete_validated_workdir, remove_zip, swap_hash_mismatch_pair,
+    write_checksums,
 )
-from .cli import RunContext
+from .cli import Config, RunContext
 from .io import tty_read
-from .utils import fmt_size, sha256_text
+from .utils import fmt_size, now_suffix, sha256_text, tagged_names
 from .verify import (
     handle_external_symlinks, print_external_symlink_summary,
     unreadable_prompt, verify_checksum_file_contents,
@@ -27,6 +27,25 @@ def plist_value(plist_path: Path, key: str) -> str | None:
         return str(v) if v is not None else None
     except Exception:
         return None
+
+
+def _offer_hash_mismatch_swap(
+    name: str, mobile: str, version: str,
+    zipname: str, checksumname: str,
+    newzip: str, newcheck: str,
+    suffix: str, cfg: Config,
+) -> None:
+    choice = tty_read(
+        "  Swap in the new archive as the canonical version "
+        "(old kept as ~hash-mismatch~)? [y/N]: ", "n",
+    )
+    if choice not in ("y", "Y"):
+        return
+    mismatch_zip, mismatch_check = tagged_names(name, mobile, version, f"hash-mismatch~{suffix}")
+    if swap_hash_mismatch_pair(cfg, zipname, checksumname, newzip, newcheck, mismatch_zip, mismatch_check):
+        print(f"  SWAPPED ✅: {zipname} is now the live-matching archive; old content kept as {mismatch_zip}")
+    else:
+        print("  SWAP SKIPPED: layout left unchanged")
 
 
 def run_archive(ctx: RunContext) -> None:
@@ -100,11 +119,11 @@ def run_archive(ctx: RunContext) -> None:
                         archive_and_store_zip(app, versioned, zipname, live_manifest_hash, zipstem, ctx)
                         write_checksums(live_checksums, checksumname, ctx)
                     elif choice in ("b", "B"):
-                        suffix = time.strftime("%Y%m%d_%H%M%S")
-                        newzip = f"{name}.app@{mobile}{version}~{suffix}.zip"
-                        newcheck = f"{name}.app@{mobile}{version}~{suffix}.checksums.txt"
+                        suffix = now_suffix()
+                        newzip, newcheck = tagged_names(name, mobile, version, suffix)
                         archive_and_store_zip(app, versioned, newzip, live_manifest_hash, zipstem, ctx)
                         write_checksums(live_checksums, newcheck, ctx)
+                        _offer_hash_mismatch_swap(name, mobile, version, zipname, checksumname, newzip, newcheck, suffix, cfg)
                     else:
                         print("  SKIPPED")
 
@@ -143,11 +162,11 @@ def run_archive(ctx: RunContext) -> None:
                         write_checksums(live_checksums, checksumname, ctx)
                     elif choice in ("b", "B"):
                         write_checksums(zip_checksums, checksumname, ctx)
-                        suffix = time.strftime("%Y%m%d_%H%M%S")
-                        newzip = f"{name}.app@{mobile}{version}~{suffix}.zip"
-                        newcheck = f"{name}.app@{mobile}{version}~{suffix}.checksums.txt"
+                        suffix = now_suffix()
+                        newzip, newcheck = tagged_names(name, mobile, version, suffix)
                         archive_and_store_zip(app, versioned, newzip, live_manifest_hash, zipstem, ctx)
                         write_checksums(live_checksums, newcheck, ctx)
+                        _offer_hash_mismatch_swap(name, mobile, version, zipname, checksumname, newzip, newcheck, suffix, cfg)
                     else:
                         print("  SKIPPED")
             continue

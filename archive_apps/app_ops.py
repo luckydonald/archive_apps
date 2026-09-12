@@ -185,6 +185,73 @@ def remove_zip(zipname: str, cfg: Config) -> None:
         (cfg.local_cache / (zipname + ".tmp")).unlink(missing_ok=True)
 
 
+def _rollback_rename(src: Path, dst: Path) -> None:
+    try:
+        dst.rename(src)
+    except Exception as e:
+        print(f"  ROLLBACK FAILED ⚠️: {dst} could not be restored to {src}: {e}")
+
+
+def swap_hash_mismatch_pair(
+    cfg: Config,
+    zipname: str, checksumname: str,
+    newzip: str, newcheck: str,
+    mismatch_zipname: str, mismatch_checkname: str,
+) -> bool:
+    dest = cfg.dest
+    old_zip, old_check = dest / zipname, dest / checksumname
+    new_zip, new_check = dest / newzip, dest / newcheck
+    tag_zip, tag_check = dest / mismatch_zipname, dest / mismatch_checkname
+
+    # Path.rename() silently overwrites an existing destination on POSIX, so
+    # every target must be pre-checked — never let rename() itself decide.
+    if not old_zip.exists() or not old_check.exists():
+        print(f"  SWAP ABORTED ⚠️: canonical pair incomplete ({zipname})")
+        return False
+    if not new_zip.exists() or not new_check.exists():
+        print(f"  SWAP ABORTED ⚠️: new pair incomplete ({newzip})")
+        return False
+    if tag_zip.exists() or tag_check.exists():
+        print(f"  SWAP ABORTED ⚠️: target already exists ({mismatch_zipname})")
+        return False
+
+    try:
+        old_zip.rename(tag_zip)
+    except Exception as e:
+        print(f"  SWAP FAILED ⚠️: could not tag old zip: {e}")
+        return False
+    try:
+        old_check.rename(tag_check)
+    except Exception as e:
+        print(f"  SWAP FAILED ⚠️: could not tag old checksums: {e}")
+        _rollback_rename(old_zip, tag_zip)
+        return False
+
+    try:
+        new_zip.rename(old_zip)
+    except Exception as e:
+        print(f"  SWAP FAILED ⚠️: could not promote new zip: {e}")
+        _rollback_rename(old_check, tag_check)
+        _rollback_rename(old_zip, tag_zip)
+        return False
+    try:
+        new_check.rename(old_check)
+    except Exception as e:
+        # Degraded but safe: canonical name is left absent rather than half-swapped.
+        # The next crawl sees dest_zip missing and re-archives fresh from the live app.
+        print(f"  SWAP FAILED ⚠️: zip promoted but checksums promotion failed: {e}")
+        _rollback_rename(new_zip, old_zip)
+        _rollback_rename(old_check, tag_check)
+        _rollback_rename(old_zip, tag_zip)
+        return False
+
+    if cfg.local_cache:
+        (cfg.local_cache / zipname).unlink(missing_ok=True)
+        (cfg.local_cache / (zipname + ".tmp")).unlink(missing_ok=True)
+
+    return True
+
+
 def write_checksums(content: str, checksumname: str, ctx: RunContext) -> None:
     tmp = ctx.cfg.dest / (checksumname + ".tmp")
     safe_write(content, tmp, ctx)
