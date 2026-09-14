@@ -860,3 +860,54 @@ Can we make the appending of new items atomic, and the final reorder atomic, too
 
 ❯ Check python code style
 
+❯ /plan I want `[o]verwrite zip / [b]oth / [s]kip:` to time out after a minute, to select **skip**. Then it should be re-queued at the end when everything else is done, this time indeed blocking. The idea is here to be efficient if the script is running when nobody is looking. To also help with that, I want to be able to set those to one of these beforehand via a keyword flag (if not yet existent).
+Also `[b]oth` should be `[b]oth (version previous)` for clarity of the recent change.
+
+❯ Task Notification:
+> - Task `a9838a168d396e106` <kbd>completed</kbd>
+> - Tool `toolu_01XDFYqQz13X2cmYn8aAQWNo`
+> - > Agent "Explore mismatch prompt and retry flow" finished
+> - [Query (`2220` chars, `2.18 KB`)](output/agents/012.a9838a168d396e106/prompt.md)
+> - [Answer (`12913` chars, `12.7 KB`)](output/agents/012.a9838a168d396e106/result.md)
+> - [Raw log (`267642` chars, `262 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/91b0cd4a-3cc7-44fc-a4af-aef17a0f48fa/tasks/a9838a168d396e106.output)
+> - `14` tools, `41201` tokens, `1.14332 s`
+
+❯ Task Notification:
+> - Task `a4ed410832ea1f62b` <kbd>completed</kbd>
+> - Tool `toolu_01EWBaGuN1gaxqV8oiygK8pg`
+> - > Agent "Explore CLI flag conventions and RunContext" finished
+> - [Query (`1787` chars, `1.75 KB`)](output/agents/013.a4ed410832ea1f62b/prompt.md)
+> - [Answer (`15644` chars, `15.3 KB`)](output/agents/013.a4ed410832ea1f62b/result.md)
+> - [Raw log (`302380` chars, `296 KB`)](/private/tmp/claude-501/-Users-user-Documents-programming-Shell-archive-apps/91b0cd4a-3cc7-44fc-a4af-aef17a0f48fa/tasks/a4ed410832ea1f62b.output)
+> - `12` tools, `52464` tokens, `1.7218 s`
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. When --on-mismatch=both is preset (no prompts expected, e.g. unattended run), the [b]oth branch normally follows up with a second interactive prompt: "Swap in the new archive as the canonical version... [y/N]". Should that swap sub-prompt also be auto-answered (default N, i.e. no swap) when --on-mismatch is preset, or should it still block waiting for a human?
+>> 2. Should the same 60s-timeout-then-defer behavior also apply to the swap sub-prompt when a live user hit '[b]oth' interactively (no --on-mismatch preset), or should that follow-up question stay a plain blocking prompt like today?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Swap sub-prompt** (1/2) <kbd>Single Select</kbd><br>
+>> When --on-mismatch=both is preset (no prompts expected, e.g. unattended run), the [b]oth branch normally follows up with a second interactive prompt: "Swap in the new archive as the canonical version... [y/N]". Should that swap sub-prompt also be auto-answered (default N, i.e. no swap) when --on-mismatch is preset, or should it still block waiting for a human?
+> - [ ] 1\. Auto-answer N under preset (Recommended)
+>   - _Keeps --on-mismatch fully non-blocking end-to-end — necessary for unattended/overnight runs, which is the stated motivation for this flag. No swap happens automatically; user can swap manually later._
+> - [ ] 2\. Still block on swap prompt
+>   - _The swap sub-prompt keeps waiting for a human even when --on-mismatch is set, meaning a 'both' preset can still hang a supposedly-unattended run._
+> - [x] 3\. _Type something:_
+>   - > Add a flag which is required in case of --on-mismatch=both
+>
+>> **Swap prompt timeout** (2/2) <kbd>Single Select</kbd><br>
+>> Should the same 60s-timeout-then-defer behavior also apply to the swap sub-prompt when a live user hit '[b]oth' interactively (no --on-mismatch preset), or should that follow-up question stay a plain blocking prompt like today?
+> - [ ] 1\. Keep swap prompt plain/blocking (Recommended)
+>   - _Only the top-level [o]/[b]/[s] prompt gets the timeout+requeue treatment, matching what was explicitly requested. The swap question is a quick secondary y/N asked immediately after a live human just answered the first prompt, so a timeout there is unlikely to matter._
+> - [x] 2\. Add the same timeout+defer to the swap prompt too
+>   - _Treat the swap y/N the same way: time out after 60s, defer, and re-ask (blocking) in the end-of-run retry pass._
+> - [ ] 3\. _Type something._
+>
+> </details>
+>
+
