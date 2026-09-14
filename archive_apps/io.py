@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import select
 import shutil
 import sys
 import time
@@ -18,6 +19,21 @@ def tty_read(prompt: str, default: str = "") -> str:
             return tty.readline().rstrip("\n") or default
     except Exception:
         return default
+
+
+def tty_read_timeout(prompt: str, default: str, timeout: float) -> tuple[str, bool]:
+    """Like tty_read, but gives up after `timeout` seconds. Returns (answer, timed_out)."""
+    try:
+        with open("/dev/tty") as tty:
+            sys.stderr.write(prompt)
+            sys.stderr.flush()
+            ready, _, _ = select.select([tty], [], [], timeout)
+            if not ready:
+                sys.stderr.write("\n")
+                return default, True
+            return tty.readline().rstrip("\n") or default, False
+    except Exception:
+        return default, False
 
 
 def write_fail_menu(

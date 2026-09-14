@@ -241,17 +241,62 @@ existing deadline/poll style used in `lock.py`'s `_mkdir_lock`.
 - `archive.py` needs `tty_read_timeout` from `.io`, and `MismatchTask`,
   `SwapTask` from `.cli`.
 
-## Out of scope (flagged, not touched)
-- `archive_apps/__main__.py:59-61` calls `main()` unconditionally at module
-  scope *and* again under `if __name__ == "__main__":` — a pre-existing
-  double-invocation quirk unrelated to this change. Not touching it here;
-  worth a separate fix if the user wants it.
-- The third, prompt-less mismatch case at `archive.py:196-197` ("freshly
-  created zip doesn't match the app it was just zipped from") has no
-  interactive prompt today and isn't changed.
+## Also in scope: the third mismatch case
+
+`archive_apps/archive.py:196-197` — right after a *brand-new* zip is created
+(the "no zip yet" branch), its contents are re-verified against the live app
+it was just copied from. On mismatch, today this just prints
+`"  MISMATCH ❌: archived checksum does not match original app"` and moves on:
+no summary entry, no prompt, no retry. This is structurally different from
+the other two sites — there's no "previous" zip to preserve, so
+`[o]verwrite`/`[b]oth` don't apply — so it gets its own small resolution flow
+rather than reusing `_resolve_mismatch`.
+
+- **Always** record it via the existing (but currently unused-by-`run_archive`)
+  `record_verify_failure`/`print_verify_failure_summary` machinery in
+  `verify.py`, so it surfaces in an end-of-run summary instead of scrolling
+  past silently. `run_archive` gains a `print_verify_failure_summary(ctx)`
+  call at the very end (after the deferred-retry pass), and — matching the
+  existing convention in `run_verify_zip`/`run_verify_all`
+  (`verify.py:188-190`) — `sys.exit(1)` if `ctx.verify_failure_summary` is
+  non-empty when the run finishes.
+- **Also** gets its own interactive prompt with the same 60s-timeout-then-defer
+  treatment: `"  [r]etry now / [d]elete zip+checksum / [k]eep as-is: "`,
+  default `"k"` (matches the codebase's non-destructive-default convention).
+  - `[r]etry`: re-run `archive_and_store_zip` + `write_checksums` once and
+    re-verify; on success, treat it like the normal creation path
+    (`delete_validated_workdir`); on renewed failure, record it as a verify
+    failure instead of looping.
+  - `[d]elete`: remove both the zip and checksum file (new `remove_checksum`
+    helper in `app_ops.py`, mirroring the existing `remove_zip`) so the next
+    run re-archives from scratch; record it as a verify failure.
+  - `[k]eep`: leave the mismatched pair as-is; record it as a verify failure.
+- New preset flag `--on-verify-mismatch=retry|delete|keep` (same
+  `--flag=value` pattern as `--on-mismatch`) lets this be preset too, so an
+  unattended run never has to prompt here either. No paired "required"
+  flag is needed since there's no secondary sub-question like the swap prompt.
+- `Config` gains `on_verify_mismatch: str | None`. `RunContext` gains
+  `deferred_verify_mismatches: list[VerifyMismatchTask]` and a
+  `VerifyMismatchTask` dataclass (`label`, `app`, `versioned`, `zipname`,
+  `checksumname`, `zipstem`, `live_manifest_hash`, `live_checksums`) —
+  defined in `cli.py` next to `MismatchTask`/`SwapTask`.
+- A new `_resolve_verify_mismatch(task, ctx, timeout)` in `archive.py`
+  mirrors `_resolve_mismatch`'s shape (preset check → prompt-with-timeout →
+  defer-on-timeout → branch on choice), reusing `_prompt_with_optional_timeout`.
+- The end-of-run deferred-retry pass (see above) also drains
+  `ctx.deferred_verify_mismatches` via `_resolve_verify_mismatch(task, ctx,
+  timeout=None)`, alongside `deferred_mismatches` and `deferred_swaps`.
+
+## Not in scope
 - No new flag for the timeout duration itself — the user asked specifically
   for "a minute", so it's a plain constant (`MISMATCH_PROMPT_TIMEOUT_SECONDS`
-  in `archive.py`) rather than another flag.
+  in `archive.py`) shared by all three prompt sites, rather than another flag.
+- Investigated `archive_apps/__main__.py`'s `main()` invocation on the
+  suspicion of a double-call bug (raised by earlier research) — on direct
+  inspection this isn't real: `__main__.py:60-61` already guards its call
+  with `if __name__ == "__main__":`, and `main.py` (the shebang wrapper)
+  calls `main()` once via an explicit import, which never triggers that
+  guard. `main()` only ever runs once either way. Nothing to change.
 
 ## Verification
 - `python -m py_compile archive_apps/*.py` (or just `./main.py --help`) to
@@ -274,3 +319,13 @@ existing deadline/poll style used in `lock.py`'s `_mkdir_lock`.
     are skipped, a new tagged zip/checksum pair appears, and no swap happens.
   - Confirm the live prompt text now reads
     `[o]verwrite zip / [b]oth (version previous) / [s]kip:`.
+- For the third case: force a post-creation mismatch (e.g. temporarily corrupt
+  `archive_and_store_zip`'s output, or hand-edit a freshly-created zip before
+  the verification step runs, in a scratch destination), then:
+  - Let the `[r]etry / [d]elete / [k]eep` prompt time out → confirm it defers
+    and is re-asked (blocking) at the end of the run.
+  - Run with `--on-verify-mismatch=delete` → confirm no prompt, the zip and
+    checksum file are both removed.
+  - Confirm `print_verify_failure_summary` output appears at the end of the
+    run whenever any of retry-failed/delete/keep happened, and that the
+    process exits non-zero in that case (`echo $?` after the run).
