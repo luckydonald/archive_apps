@@ -911,3 +911,28 @@ Also `[b]oth` should be `[b]oth (version previous)` for clarity of the recent ch
 > </details>
 >
 
+❯ Let's address the first two flagged items from the plan, too.
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. For the third mismatch case (post-creation verify failure on a freshly-created zip, archive.py:196-197) — what should "addressed" mean here?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Post-create mismatch** (1/1) <kbd>Single Select</kbd><br>
+>> For the third mismatch case (post-creation verify failure on a freshly-created zip, archive.py:196-197) — what should "addressed" mean here?
+> - [ ] 1\. Record it in the end-of-run summary (Recommended)
+>   - _Wire this into the existing record_verify_failure/print_verify_failure_summary mechanism (already used elsewhere in verify.py) so it's visible at the end of the run instead of scrolling past silently. No prompt, no retry — the zip+checksum pair is left as-is._
+> - [ ] 2\. Delete the bad zip+checksum pair automatically
+>   - _Since there's no "previous" version to preserve here, remove the just-created mismatched zip/checksum so the next run starts fresh and re-archives cleanly, plus record it in the summary._
+> - [ ] 3\. Also give it an interactive prompt with timeout
+>   - _Treat it like the other two mismatch sites — ask the user what to do (e.g. retry now / delete / leave), with the same 60s-timeout-then-defer behavior, even though there's no "previous" zip to offer as an alternative._
+> - [x] 4\. _Type something:_
+>   - > Both record end-of-run and timeouted prompt with later retry
+>
+> </details>
+>
+

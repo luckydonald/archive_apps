@@ -185,6 +185,10 @@ def remove_zip(zipname: str, cfg: Config) -> None:
         (cfg.local_cache / (zipname + ".tmp")).unlink(missing_ok=True)
 
 
+def remove_checksum(checksumname: str, cfg: Config) -> None:
+    (cfg.dest / checksumname).unlink(missing_ok=True)
+
+
 def _rollback_rename(src: Path, dst: Path) -> None:
     try:
         dst.rename(src)
