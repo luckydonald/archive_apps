@@ -134,7 +134,8 @@ def ensure_archive_copy(app: Path, versioned: str, workdir: Path, ctx: RunContex
     workdir.mkdir(parents=True, exist_ok=True)
 
     if workapp.exists() and not workapp.is_dir():
-        rm_retry(workapp)
+        if not rm_retry(workapp):
+            sys.exit(1)
 
     if workapp.is_dir():
         print("  COPY: reusing preserved temp copy")
@@ -143,7 +144,8 @@ def ensure_archive_copy(app: Path, versioned: str, workdir: Path, ctx: RunContex
             return
         except Exception:
             print("  COPY WARN: preserved temp copy repair failed; recreating")
-            rm_retry(workapp)
+            if not rm_retry(workapp):
+                sys.exit(1)
 
     copy_app_fresh(app, workapp)
 

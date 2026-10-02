@@ -1,0 +1,16 @@
+$ make
+
+…
+  DELETE done in 00:00
+  DELETE done in 00:00
+  DELETE done in 00:00
+  DELETE done in 00:00
+ERROR: failed to remove /Volumes/<share>/<path>/Applications.zip/data/.archive_apps.Telegram.app@12.8.ac9929794769a480a1bb247a240d39dfed306e551fa519992f29f1be648a355d after 5 attempts
+Exception ignored in atexit callback <function _cleanup at 0x1010fd6f0>:
+Traceback (most recent call last):
+  File "/Users/user/Documents/programming/Python/archive_apps/archive_apps.py", line 495, in _cleanup
+    rm_retry(d)
+  File "/Users/user/Documents/programming/Python/archive_apps/archive_apps.py", line 465, in rm_retry
+    sys.exit(1)
+SystemExit: 1
+make: *** [archive] Error 1

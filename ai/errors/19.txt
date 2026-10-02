@@ -1,0 +1,17 @@
+make verify-new
+
+…
+
+^C
+
+Traceback (most recent call last):
+  File "/Users/user/Documents/programming/Python/archive_apps/archive_apps.py", line 481, in _cleanup
+    merge_checksum_index(_index_scratch)
+  File "/Users/user/Documents/programming/Python/archive_apps/archive_apps.py", line 1297, in merge_checksum_index
+    index_file.rename(backup)
+  File "/Users/user/.local/share/uv/python/cpython-3.14.3-macos-aarch64-none/lib/python3.14/pathlib/__init__.py", line 1076, in rename
+    os.rename(self, target)
+  File "/Users/user/Documents/programming/Python/archive_apps/archive_apps.py", line 1750, in <lambda>
+    signal.signal(sig, lambda s, f: sys.exit(1))
+SystemExit: 1
+make: *** [verify-new] Error 1

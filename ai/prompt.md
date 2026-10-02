@@ -936,3 +936,10 @@ Also `[b]oth` should be `[b]oth (version previous)` for clarity of the recent ch
 > </details>
 >
 
+❯ /plan Please fix the program handling errors/termination not gracefully.
+My assumption is that it will in those cases not write the needed files.
+(SHA lists etc.)
+See some examples at @ai/errors/18.txt and @ai/errors/19.txt
+
+❯ /sanitize-error-logs
+
