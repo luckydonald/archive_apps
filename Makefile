@@ -4,9 +4,12 @@
 
 # Personal values (NAS, share, folder, tool paths) live in the hidden, git-ignored
 # `.env.Makefile` next to this Makefile. Copy `.env.Makefile.example` to get started.
+#
 # Use another file with: make ENV_FILE=/path/to/other-env-file
 SCRIPT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 ENV_FILE ?= $(SCRIPT_DIR)/.env.Makefile
+
+# This is the include of that file:
 -include $(ENV_FILE)
 
 # Mount & Path (required, set in the env file)
