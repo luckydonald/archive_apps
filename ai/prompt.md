@@ -947,3 +947,17 @@ See some examples at @ai/errors/18.txt and @ai/errors/19.txt
 It it makes sense, git add `uv.lock`.
 Add the `.env.Makefile` to (and remove the `Makefile` from) the `gitignore`.
 
+❯ I fixed my `.env.Makefile` to use `FOLDER` instead of `PATH`, too, thanks. Please now do the tag & rebase of /commit-with-lplp-style
+
+❯ Rebase onto newest `base/base`. Make sure the `base` README (./docs/README.md) and our README (./README.md) stay separate in the process.
+
+❯ Is this environment based on `base/base` (so `mane` is a fast forward basically) or was `base/base` merged into this code?
+
+❯ Run the tag backup script which saves the current `HEAD` commit hash. Pull the current branch (usually `mane` or `deploy4`) if not divergent (usually because an previous rebase). In case of divergence of commit hashes, ￼confirm that we have everything from remote (usually `origin`) here as well. Different `base/base` or unsquashed AI or TODO commits is a common reason. Squash with /commit-with-lplp-style for all unpushed commits (excluding `base/base` commits). Fetch the newest `base/base`. ￼Rebase everything onto `base/base`. If we earlier accidentally merged `base/base` into our code, flattening those (they also might be interesting for base conflicts earlier).
+
+❯ Clean up older unpushed history (since `base/base`), too. Once everything is clean write me a summary. If i then send a _continue_, you may push, including a sha-gated & leased force-push (which commit hash you describe in your summary beforehand).
+
+❯ Add a test HEAD == sha1 into it
+
+❯ Clean up older unpushed history (since `base/base`), too. Once everything is clean write me a summary, including a sha-gated & leased force-push command. If i then send a _continue_, you may (force) push, as I have allowed both source and destination commit for the overwriting.
+
