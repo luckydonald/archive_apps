@@ -5,3 +5,7 @@
 - [Markdown line wrap](feedback_md_line_wrap_style.md) — wrap prose at sentence ends, not a fixed column; read the code-style `md.md` before writing any `.md`, plans included
 - [File deletion policy](feedback_file_deletion.md) — `git rm` for tracked files; rename untracked ones to `*.YYYY-MM-DD.bak.ext`
 - [Scripts in Python+uv](feedback_scripts_python_uv.md) — new scripts and hooks: Python with a `uv run --script` shebang, not bash
+- [commit conventions](feedback_commit_conventions.md) — TODO: summarize this file.
+- [design preferences](feedback_design_preferences.md) — TODO: summarize this file.
+- [project checksum index concurrency fix](project_checksum_index_concurrency_fix.md) — TODO: summarize this file.
+- [project shell script removed](project_shell_script_removed.md) — TODO: summarize this file.
