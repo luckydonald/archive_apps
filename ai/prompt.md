@@ -943,3 +943,7 @@ See some examples at @ai/errors/18.txt and @ai/errors/19.txt
 
 ❯ /sanitize-error-logs
 
+❯ commit `.env.Makefile.example` after adapting the `Makefile` to import the variables from the hidden `.env.Makefile`.
+It it makes sense, git add `uv.lock`.
+Add the `.env.Makefile` to (and remove the `Makefile` from) the `gitignore`.
+

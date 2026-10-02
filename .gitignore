@@ -779,6 +779,10 @@ somewhere.py
 !**/*.example.env
 !ai/.env.example
 
+# Makefile's local settings (hidden, personal); only the example is tracked
+.env.Makefile
+!.env.Makefile.example
+
 # Misc stuff
 certs/
 /docker-compose.production.yml
