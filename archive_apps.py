@@ -427,10 +427,20 @@ def safe_mv(src: Path, dst: Path) -> None:
 # rm_retry
 # ---------------------------------------------------------------------------
 
-def rm_retry(path: Path) -> None:
+def _unlock_tree(path: Path) -> None:
+    """Clear immutable flags / read-only bits that block deletion (best effort)."""
+    for cmd in (["chflags", "-R", "nouchg,noschg", str(path)], ["chmod", "-R", "u+rwX", str(path)]):
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=120)
+        except Exception:
+            pass
+
+
+def rm_retry(path: Path) -> bool:
+    """Remove path; return False (never exit) if it could not be removed."""
     for attempt in range(1, 6):
         if not path.exists():
-            return
+            return True
 
         # TODO: replace with Python os.walk / Path.rglob
         r = subprocess.run(
@@ -458,45 +468,74 @@ def rm_retry(path: Path) -> None:
             shutil.rmtree(str(path), ignore_errors=True)
 
         if not path.exists():
-            return
+            return True
+        if attempt == 2:
+            _unlock_tree(path)
         time.sleep(1)
 
     print(f"ERROR: failed to remove {path} after 5 attempts", file=sys.stderr)
-    sys.exit(1)
+    return False
 
 
 # ---------------------------------------------------------------------------
 # Cleanup
 # ---------------------------------------------------------------------------
 
+_cleanup_done = False
+
+
 def _cleanup() -> None:
-    global _cfg
+    global _cfg, _cleanup_done
     try:
         cfg = _cfg
     except NameError:
         return
+    if _cleanup_done:
+        return
+    _cleanup_done = True
+    # Cleanup must not be interruptible: a signal mid-merge could lose the index.
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, signal.SIG_IGN)
 
     if _index_scratch is not None:
+        print("Cleaning up, please wait…", file=sys.stderr)
         try:
             merge_checksum_index(_index_scratch)
-        except Exception:
-            pass
+        except BaseException as e:
+            print(f"WARN: index merge failed ({e!r}); scratch kept for recovery", file=sys.stderr)
 
     if cfg.keep_temp:
         return
 
-    for f in cfg.dest.glob("*.zip.tmp"):
-        f.unlink(missing_ok=True)
-    for f in cfg.dest.glob("*.checksums.txt.tmp"):
-        if f not in _preserve_tmps:
-            f.unlink(missing_ok=True)
-    for d in cfg.dest.glob(".archive_apps.*"):
-        if d.is_dir():
-            rm_retry(d)
-    import tempfile as _tempfile
-    for d in Path(_tempfile.gettempdir()).glob(".archive_apps.*"):
-        if d.is_dir():
-            rm_retry(d)
+    for pattern, keep in (("*.zip.tmp", ()), ("*.checksums.txt.tmp", _preserve_tmps)):
+        for f in cfg.dest.glob(pattern):
+            if f in keep:
+                continue
+            try:
+                f.unlink(missing_ok=True)
+            except Exception as e:
+                print(f"WARN: could not remove {f}: {e}", file=sys.stderr)
+    leftovers = 0
+    for base in (cfg.dest, Path(tempfile.gettempdir())):
+        try:
+            dirs = [d for d in base.glob(".archive_apps.*") if d.is_dir()]
+        except Exception:
+            continue
+        for d in dirs:
+            try:
+                if not rm_retry(d):
+                    leftovers += 1
+            except Exception as e:
+                leftovers += 1
+                print(f"WARN: could not remove {d}: {e}", file=sys.stderr)
+    if leftovers:
+        print(f"WARN: {leftovers} leftover work dir(s) not removed; they are reused or can be deleted manually", file=sys.stderr)
+
+
+def _on_signal(signum: int, _frame: object) -> None:
+    if signum == signal.SIGINT:
+        raise KeyboardInterrupt
+    raise SystemExit(128 + signum)
 
 
 # ---------------------------------------------------------------------------
@@ -904,7 +943,8 @@ def ensure_archive_copy(app: Path, versioned: str, workdir: Path) -> None:
     workdir.mkdir(parents=True, exist_ok=True)
 
     if workapp.exists() and not workapp.is_dir():
-        rm_retry(workapp)
+        if not rm_retry(workapp):
+            sys.exit(1)
 
     if workapp.is_dir():
         print("  COPY: reusing preserved temp copy")
@@ -913,7 +953,8 @@ def ensure_archive_copy(app: Path, versioned: str, workdir: Path) -> None:
             return
         except Exception:
             print("  COPY WARN: preserved temp copy repair failed; recreating")
-            rm_retry(workapp)
+            if not rm_retry(workapp):
+                sys.exit(1)
 
     copy_app_fresh(app, workapp)
 
@@ -1290,20 +1331,23 @@ def merge_checksum_index(scratch_file: Path) -> None:
                     for line in history_lines:
                         f.write(line + "\n")
 
-            if index_file.exists():
-                ts = time.strftime("%Y-%m-%d_%H-%M-%S")
-                disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
-                backup = _cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
-                index_file.rename(backup)
-
             lines = [f"{h}  {n}" for n, h in merged.items()]
             lines.sort(key=lambda line: line.split(None, 1)[-1])
             fd, tmp_path = tempfile.mkstemp(
                 prefix="_checksum_index_.", suffix=".tmp", dir=str(_cfg.dest)
             )
             os.close(fd)
-            Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
-            Path(tmp_path).rename(index_file)
+            try:
+                Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
+                if index_file.exists():
+                    ts = time.strftime("%Y-%m-%d_%H-%M-%S")
+                    disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
+                    backup = _cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
+                    shutil.copy2(index_file, backup)
+                os.replace(tmp_path, index_file)  # atomic: index is never absent
+            except BaseException:
+                Path(tmp_path).unlink(missing_ok=True)
+                raise
 
             if not _cfg.keep_temp:
                 for old_backup in sorted(_cfg.dest.glob("_checksum_index_.*.bak"))[:-_INDEX_BACKUP_KEEP]:
@@ -1747,7 +1791,7 @@ def main(argv: list[str] | None = None) -> None:
 
     atexit.register(_cleanup)
     for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, lambda s, f: sys.exit(1))
+        signal.signal(sig, _on_signal)
 
     if _cfg.verify_zip_arg:
         run_verify_zip()

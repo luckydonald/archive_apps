@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import random
+import shutil
 import sys
 import tempfile
 import time
@@ -253,20 +254,23 @@ def merge_checksum_index(scratch_file: Path, ctx: RunContext) -> None:
                     for line in history_lines:
                         f.write(line + "\n")
 
-            if index_file.exists():
-                ts = time.strftime("%Y-%m-%d_%H-%M-%S")
-                disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
-                backup = cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
-                index_file.rename(backup)
-
             lines = [f"{h}  {n}" for n, h in merged.items()]
             lines.sort(key=lambda line: line.split(None, 1)[-1])
             fd, tmp_path = tempfile.mkstemp(
                 prefix="_checksum_index_.", suffix=".tmp", dir=str(cfg.dest)
             )
             os.close(fd)
-            Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
-            Path(tmp_path).rename(index_file)
+            try:
+                Path(tmp_path).write_text("\n".join(lines) + "\n" if lines else "")
+                if index_file.exists():
+                    ts = time.strftime("%Y-%m-%d_%H-%M-%S")
+                    disambiguator = f"{os.getpid()}{random.randint(0, 9999):04d}"
+                    backup = cfg.dest / f"_checksum_index_.{ts}.{disambiguator}.bak"
+                    shutil.copy2(index_file, backup)
+                os.replace(tmp_path, index_file)  # atomic: index is never absent
+            except BaseException:
+                Path(tmp_path).unlink(missing_ok=True)
+                raise
 
             if not cfg.keep_temp:
                 for old_backup in sorted(cfg.dest.glob("_checksum_index_.*.bak"))[:-_INDEX_BACKUP_KEEP]:

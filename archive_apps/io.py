@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import select
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -158,10 +159,20 @@ def safe_mv(src: Path, dst: Path, ctx: RunContext) -> None:
         target = result
 
 
-def rm_retry(path: Path) -> None:
+def _unlock_tree(path: Path) -> None:
+    """Clear immutable flags / read-only bits that block deletion (best effort)."""
+    for cmd in (["chflags", "-R", "nouchg,noschg", str(path)], ["chmod", "-R", "u+rwX", str(path)]):
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=120)
+        except Exception:
+            pass
+
+
+def rm_retry(path: Path) -> bool:
+    """Remove path; return False (never exit) if it could not be removed."""
     for _attempt in range(1, 6):
         if not path.exists():
-            return
+            return True
 
         entries: list[str] = []
         for dirpath, dirnames, filenames in os.walk(str(path), topdown=False):
@@ -188,8 +199,10 @@ def rm_retry(path: Path) -> None:
             shutil.rmtree(str(path), ignore_errors=True)
 
         if not path.exists():
-            return
+            return True
+        if _attempt == 2:
+            _unlock_tree(path)
         time.sleep(1)
 
     print(f"ERROR: failed to remove {path} after 5 attempts", file=sys.stderr)
-    sys.exit(1)
+    return False
