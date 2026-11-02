@@ -1053,6 +1053,28 @@ def parse_result(result: Any) -> list[dict[str, Any]]:
 # end def
 
 
+PAGE_SIZE = 50
+
+
+async def collect_pages(call_page: Any, page_size: int = PAGE_SIZE) -> list[dict[str, Any]]:
+    """
+    Reads `list_todos` page by page, as one response must stay below the MCP client's 1 MiB limit per event.
+    A short page is the last one; a page that brings nothing new (a server without paging sends everything again) ends it too.
+    """
+    todos: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    while True:
+        page = await call_page(len(todos), page_size)
+        new = [todo for todo in page if todo.get("uid") not in seen]
+        seen.update(todo.get("uid") for todo in new)
+        todos.extend(new)
+        if len(page) < page_size or not new:
+            return todos
+        # end if
+    # end while
+# end def
+
+
 async def fetch_todos(url: str, token: str, calendar_id: int) -> list[dict[str, Any]]:
     from mcp import ClientSession
     from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
@@ -1060,11 +1082,15 @@ async def fetch_todos(url: str, token: str, calendar_id: int) -> list[dict[str, 
     async with create_mcp_http_client(headers={"Authorization": f"Bearer {token}"}) as http:
         async with streamable_http_client(url, http_client=http) as (read, write), ClientSession(read, write) as session:
             await session.initialize()
-            result = await session.call_tool("list_todos", {"calendar_id": calendar_id})
-            if getattr(result, "isError", False):
-                raise RuntimeError(f"list_todos failed: {result.content}")
-            # end if
-            return parse_result(result)
+            async def call_page(offset: int, limit: int) -> list[dict[str, Any]]:
+                result = await session.call_tool("list_todos", {"calendar_id": calendar_id, "offset": offset, "limit": limit})
+                if getattr(result, "isError", False):
+                    raise RuntimeError(f"list_todos failed: {result.content}")
+                # end if
+                return parse_result(result)
+            # end def
+
+            return await collect_pages(call_page)
         # end with
     # end with
 # end def

@@ -1,4 +1,5 @@
 """Run: uv run --with pytest --with 'pydantic>=2.6' --with 'mcp>=2.3' --with python-dotenv pytest scripts/°base/ai/todos/tests/test_sync_todos.py"""
+import asyncio
 import importlib.util
 import json
 import os
@@ -197,6 +198,27 @@ def test_parse_result_per_item_blocks():
     assert [t["uid"] for t in st.parse_result(res)] == ["a", "b"]
     res = SimpleNamespace(structuredContent={"result": [todo("c", "c")]}, content=[])
     assert st.parse_result(res)[0]["uid"] == "c"
+# end def
+
+
+def test_collect_pages():
+    every = [todo(f"u{i:03}", f"t{i}") for i in range(7)]
+    calls = []
+
+    async def paged(offset, limit):
+        calls.append((offset, limit))
+        return every[offset:offset + limit]
+
+    assert [t["uid"] for t in asyncio.run(st.collect_pages(paged, 3))] == [t["uid"] for t in every]
+    assert calls == [(0, 3), (3, 3), (6, 3)]
+    calls.clear()
+    assert len(asyncio.run(st.collect_pages(paged, 7))) == 7  # an exact multiple needs one empty page to know it is over
+    assert calls == [(0, 7), (7, 7)]
+
+    async def ignores_paging(offset, limit):  # an older server sends everything every time
+        return every
+
+    assert len(asyncio.run(st.collect_pages(ignores_paging, 7))) == 7
 # end def
 
 
