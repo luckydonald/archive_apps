@@ -101,7 +101,8 @@
       "tags": [
         "RpAliasBot"
       ],
-      "todo_file": "ai/todos.md"
+      "todo_file": "ai/todos.md",
+      "commit_prefix": "[rp_alias] "
     },
     {
       "name": "dumper",
@@ -109,6 +110,13 @@
         "dumper"
       ],
       "todo_file": "ai/todos.md"
+    },
+    {
+      "name": "remote_imap_mail_rules",
+      "tags": [
+        "mailRules"
+      ],
+      "todo_file": "ai/todo.md"
     }
   ]
 }
