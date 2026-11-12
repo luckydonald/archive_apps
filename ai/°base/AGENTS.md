@@ -15,7 +15,7 @@ uv run --project scripts/°base python -m unittest discover -s scripts/°base/te
 
 Run a single test module:
 ```bash
-uv run --project scripts/°base python -m unittest ai.scripts.tests.test_<name> -v
+uv run --project scripts/°base python -m unittest discover -s scripts/°base/tests -p "test_<name>.py" -v
 ```
 
 Sync AI tool settings (Claude ↔ Codex) and skills:

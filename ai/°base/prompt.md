@@ -8354,3 +8354,5 @@ Probably `projects` should stay a dictionary like in the local file?
 
 ❯ Plan accepted, auto mode.
 
+❯ Adjust your records about unit tests in the base project to use UV instead of the system python
+
