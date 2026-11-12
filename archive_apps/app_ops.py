@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import locale
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -264,6 +265,44 @@ def write_checksums(content: str, checksumname: str, ctx: RunContext) -> None:
     safe_mv(tmp, ctx.cfg.dest / checksumname, ctx)
 
 
+def _rsync_send(src: Path, dst: Path, tty: bool) -> bool:
+    """Copy src to dst with rsync, showing a SEND bar on a tty. Returns True on success."""
+    if not tty:
+        return subprocess.run(["rsync", str(src), str(dst)]).returncode == 0
+    bar = ProgressBar("SEND", 100)
+    # rsync writes --progress to stdout, so read that (merged with stderr), split on the \r between updates.
+    proc = subprocess.Popen(
+        ["rsync", "--progress", str(src), str(dst)],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    assert proc.stdout is not None
+    pending = b""
+    while chunk := os.read(proc.stdout.fileno(), 4096):
+        pending += chunk
+        *parts, pending = re.split(rb"[\r\n]", pending)
+        for part in parts:
+            m = re.search(rb"(\d+)%", part)
+            if m:
+                bar.set(int(m.group(1)))
+    proc.wait()
+    bar.done()
+    return proc.returncode == 0
+
+
+def send_file(src: Path, dst: Path) -> None:
+    """Copy src to dst, preferring rsync when installed, else (or on rsync failure) a Python copy."""
+    tty = sys.stderr.isatty()
+    if shutil.which("rsync"):
+        if _rsync_send(src, dst, tty):
+            return
+        print("  SEND: rsync failed, falling back to a plain copy")
+        dst.unlink(missing_ok=True)
+    if tty:
+        copy_with_progress(src, dst)
+    else:
+        shutil.copy2(str(src), str(dst))
+
+
 def archive_and_store_zip(
     app: Path, versioned: str, zipname: str,
     manifest_hash: str, archive_stem: str, ctx: RunContext,
@@ -275,10 +314,7 @@ def archive_and_store_zip(
 
     if cfg.local_cache:
         dest_tmp = cfg.dest / (zipname + ".tmp")
-        if sys.stderr.isatty():
-            copy_with_progress(tmp, dest_tmp)
-        else:
-            shutil.copy2(str(tmp), str(dest_tmp))
+        send_file(tmp, dest_tmp)
         shutil.move(str(dest_tmp), str(cfg.dest / zipname))
         tmp.unlink(missing_ok=True)
     else:
