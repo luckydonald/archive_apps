@@ -20,8 +20,8 @@ ifeq ($(and $(SERVER),$(SHARE),$(FOLDER)),)
 $(error SERVER, SHARE and FOLDER must be set in $(ENV_FILE) (copy .env.Makefile.example there and fill it in))
 endif
 
-# Script & Environment (optional overrides, set in the env file)
-SCRIPT ?= $(SCRIPT_DIR)/archive_apps.py
+# Interpreter & Environment (optional overrides, set in the env file)
+# The tool is the `archive_apps` package, run as a module from this directory.
 PYTHON ?= $(SCRIPT_DIR)/.venv/bin/python
 UV ?= uv
 
@@ -32,6 +32,7 @@ UV ?= uv
 .PHONY: archive mount mount-mount mount-wait verify-zips verify-app verify-new verify-changed verify-abort
 .DEFAULT_GOAL := archive
 
+RUN := cd "$(SCRIPT_DIR)" && "$(UV)" run "$(PYTHON)" -m archive_apps
 VOLUME := /Volumes/$(SHARE)
 DESTINATION := $(VOLUME)/$(FOLDER)
 
@@ -129,25 +130,25 @@ archive: mount
 		echo "Waiting for Shed to mount..."; \
 		sleep 1; \
 	done
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" "$(DESTINATION)"
+	$(RUN) "$(DESTINATION)"
 
 verify-app: mount
 ifndef APP
 	$(error $(APP_REQUIRED_ERROR))
 endif
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" \
+	$(RUN) \
 		--verify-zip="$(APP)" \
 		"$(DESTINATION)"
 
 verify-zips: mount
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" --verify-zips "$(DESTINATION)"
+	$(RUN) --verify-zips "$(DESTINATION)"
 
 verify-new: mount
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" --verify-new "$(DESTINATION)"
+	$(RUN) --verify-new "$(DESTINATION)"
 
 verify-changed: mount
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" --verify-changed "$(DESTINATION)"
+	$(RUN) --verify-changed "$(DESTINATION)"
 
 verify-abort: mount
-	"$(UV)" run "$(PYTHON)" "$(SCRIPT)" --verify-abort "$(DESTINATION)"
+	$(RUN) --verify-abort "$(DESTINATION)"
 
