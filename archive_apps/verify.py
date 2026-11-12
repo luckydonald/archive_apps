@@ -11,7 +11,7 @@ from pathlib import Path
 from .cli import RunContext
 from .io import safe_append, safe_mv, safe_write, tty_read
 from .lock import checksum_index_lock
-from .utils import fmt_size, sha256_file
+from .utils import FINDER_RED, fmt_size, set_finder_color, sha256_file
 from .zip_ops import checksums_from_zip, count_symlinks_from_zip, external_symlinks_from_zip
 
 _INDEX_BACKUP_KEEP = 5
@@ -179,6 +179,7 @@ def run_verify_zip(ctx: RunContext) -> None:
             actual_legacy, _ = checksums_from_zip(zip_path, "legacy")
             if not verify_checksum_file_contents(checksumfile, manifest, actual_legacy, ctx):
                 record_verify_failure(zipname, "checksum file differs", ctx)
+                set_finder_color(zip_path, FINDER_RED)
                 if ctx.cfg.verify_abort:
                     print("  ABORTED ❌: verification failed (--verify-abort)")
                     print_verify_failure_summary(ctx)
@@ -396,6 +397,7 @@ def run_verify_all(ctx: RunContext) -> None:
             actual_legacy, _ = checksums_from_zip(zip_path, "legacy")
             if not verify_checksum_file_contents(checksumfile, manifest, actual_legacy, ctx):
                 record_verify_failure(zipname, "checksum file differs", ctx)
+                set_finder_color(zip_path, FINDER_RED)
                 if cfg.verify_abort:
                     print("  ABORTED ❌: verification failed (--verify-abort)")
                     print_verify_failure_summary(ctx)

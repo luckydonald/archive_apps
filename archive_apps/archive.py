@@ -12,7 +12,7 @@ from .app_ops import (
 )
 from .cli import MismatchTask, RunContext, SwapTask, VerifyMismatchTask
 from .io import tty_read, tty_read_timeout
-from .utils import fmt_size, now_suffix, sha256_text, tagged_names
+from .utils import FINDER_GRAY, FINDER_GREEN, FINDER_RED, fmt_size, now_suffix, set_finder_color, sha256_text, tagged_names
 from .verify import (
     handle_external_symlinks, print_external_symlink_summary,
     print_verify_failure_summary, record_verify_failure,
@@ -21,6 +21,19 @@ from .verify import (
 from .zip_ops import checksums_from_zip, count_symlinks_from_zip, external_symlinks_from_zip
 
 MISMATCH_PROMPT_TIMEOUT_SECONDS = 60
+
+
+def apply_zip_colors(ctx: RunContext) -> None:
+    """Apply Finder colors: recorded ones, then gray for verified zips of other (older) versions."""
+    dest = ctx.cfg.dest
+    for zipname, color in ctx.zip_colors.items():
+        set_finder_color(dest / zipname, color)
+    for zip_path in dest.glob("*.zip"):
+        name = zip_path.name
+        if name in ctx.zip_colors or name in ctx.seen_zipnames:
+            continue
+        if zip_path.with_name(name.removesuffix(".zip") + ".checksums.txt").exists():
+            set_finder_color(zip_path, FINDER_GRAY)
 
 
 def plist_value(plist_path: Path, key: str) -> str | None:
@@ -66,6 +79,8 @@ def _offer_hash_mismatch_swap(
     mismatch_zip, mismatch_check = tagged_names(name, mobile, version, f"hash-mismatch~{suffix}")
     if swap_hash_mismatch_pair(cfg, zipname, checksumname, newzip, newcheck, mismatch_zip, mismatch_check):
         print(f"  SWAPPED ✅: {zipname} is now the live-matching archive; old content kept as {mismatch_zip}")
+        ctx.zip_colors[zipname] = FINDER_GREEN
+        ctx.zip_colors[mismatch_zip] = FINDER_RED
     else:
         print("  SWAP SKIPPED: layout left unchanged")
 
@@ -87,6 +102,7 @@ def _resolve_mismatch(task: MismatchTask, ctx: RunContext, timeout: float | None
         remove_zip(task.zipname, cfg)
         archive_and_store_zip(task.app, task.versioned, task.zipname, task.live_manifest_hash, task.zipstem, ctx)
         write_checksums(task.live_checksums, task.checksumname, ctx)
+        ctx.zip_colors[task.zipname] = FINDER_GREEN
     elif choice in ("b", "B"):
         if task.zip_checksums is not None:
             write_checksums(task.zip_checksums, task.checksumname, ctx)
@@ -94,6 +110,8 @@ def _resolve_mismatch(task: MismatchTask, ctx: RunContext, timeout: float | None
         newzip, newcheck = tagged_names(task.name, task.mobile, task.version, suffix)
         archive_and_store_zip(task.app, task.versioned, newzip, task.live_manifest_hash, task.zipstem, ctx)
         write_checksums(task.live_checksums, newcheck, ctx)
+        ctx.seen_zipnames.add(newzip)
+        ctx.zip_colors[newzip] = FINDER_GREEN
         _offer_hash_mismatch_swap(
             task.name, task.mobile, task.version, task.zipname,
             task.checksumname, newzip, newcheck, suffix, ctx, timeout,
@@ -122,6 +140,7 @@ def _resolve_verify_mismatch(task: VerifyMismatchTask, ctx: RunContext, timeout:
         zip_checksums, czrc = checksums_from_zip(cfg.dest / task.zipname)
         if czrc == 0 and zip_checksums == task.live_checksums:
             print("  RETRIED ✅: archived checksum now matches app")
+            ctx.zip_colors[task.zipname] = FINDER_GREEN
             delete_validated_workdir(task.zipstem, task.live_manifest_hash, ctx)
         else:
             record_verify_failure(task.zipname, "post-creation checksum mismatch persisted after retry", ctx)
@@ -171,6 +190,7 @@ def run_archive(ctx: RunContext) -> None:
         versioned = f"{name} {version}.app"
 
         print(f"ARCHIVING {idx}/{total}: {zipname}")
+        ctx.seen_zipnames.add(zipname)
 
         live_symlink_count = count_live_symlinks(app)
         live_external_symlinks = collect_external_live_symlinks(app)
@@ -199,8 +219,10 @@ def run_archive(ctx: RunContext) -> None:
 
                 if verify_checksum_file_contents(dest_checksum, live_checksums, live_checksums_legacy, ctx):
                     print("  VERIFIED ✅: archived checksum matches current app")
+                    ctx.zip_colors[zipname] = FINDER_GREEN
                 else:
                     print("  MISMATCH ❌: archived checksum does not match current app")
+                    ctx.zip_colors[zipname] = FINDER_RED
                     task = MismatchTask(
                         label=f"{name} {version}", app=app, name=name, mobile=mobile, version=version,
                         versioned=versioned, zipname=zipname, checksumname=checksumname, zipstem=zipstem,
@@ -235,8 +257,10 @@ def run_archive(ctx: RunContext) -> None:
                     write_checksums(zip_checksums, checksumname, ctx)
                     print("  CHECKSUM: written")
                     print("  VERIFIED ✅: zip checksum matches current app")
+                    ctx.zip_colors[zipname] = FINDER_GREEN
                 else:
                     print("  MISMATCH ❌: zip checksum does not match current app")
+                    ctx.zip_colors[zipname] = FINDER_RED
                     task = MismatchTask(
                         label=f"{name} {version}", app=app, name=name, mobile=mobile, version=version,
                         versioned=versioned, zipname=zipname, checksumname=checksumname, zipstem=zipstem,
@@ -267,9 +291,11 @@ def run_archive(ctx: RunContext) -> None:
                 continue
             if zip_checksums == live_checksums:
                 print("  CREATED ✅: archived checksum matches app")
+                ctx.zip_colors[zipname] = FINDER_GREEN
                 delete_validated_workdir(zipstem, live_manifest_hash, ctx)
             else:
                 print("  MISMATCH ❌: archived checksum does not match original app")
+                ctx.zip_colors[zipname] = FINDER_RED
                 task = VerifyMismatchTask(
                     label=f"{name} {version}", app=app, versioned=versioned,
                     zipname=zipname, checksumname=checksumname, zipstem=zipstem,
@@ -296,6 +322,7 @@ def run_archive(ctx: RunContext) -> None:
             print(f"RESOLVING: {task.label}")
             _resolve_verify_mismatch(task, ctx, timeout=None)
 
+    apply_zip_colors(ctx)
     print_external_symlink_summary(ctx)
     print_verify_failure_summary(ctx)
     if ctx.verify_failure_summary:

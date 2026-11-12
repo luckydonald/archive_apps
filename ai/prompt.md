@@ -961,3 +961,37 @@ Add the `.env.Makefile` to (and remove the `Makefile` from) the `gitignore`.
 
 ❯ Clean up older unpushed history (since `base/base`), too. Once everything is clean write me a summary, including a sha-gated & leased force-push command. If i then send a _continue_, you may (force) push, as I have allowed both source and destination commit for the overwriting.
 
+❯ Question answered.
+> <details><summary>
+>
+>> 1. What should the Finder color of an archived zip (`{name}.app@{version}.zip`) mean?
+>> 2. How should the color be set?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Zip color** (1/2) <kbd>Single Select</kbd><br>
+>> What should the Finder color of an archived zip (`{name}.app@{version}.zip`) mean?
+> - [ ] 1\. Same scheme as the app todo (Recommended)
+>   - _Green = zip is the version currently installed and its checksums match; orange = zip of an older version than the installed one; gray = checksum mismatch; red is unused for zips (no zip means nothing to color)._
+> - [ ] 2\. Fixed color for all zips
+>   - _Every zip we write gets one label color (e.g. blue), just to make them stand out; no state tracking._
+> - [ ] 3\. By age/status of the checksums file
+>   - _Green when a .checksums.txt exists and verified, red when the checksums file is missing._
+> - [x] 4\. _Type something:_
+>   - > Green = current & verified, gray = old & verified, red = mismatch
+>
+>> **Mechanism** (2/2) <kbd>Single Select</kbd><br>
+>> How should the color be set?
+> - [x] 1\. Finder label xattr, written natively (Recommended)
+>   - _Set com.apple.FinderInfo (32 bytes, color bits in byte 9) via ctypes setxattr, which is already used in utils.supports_xattr. No new dependency. Skipped silently on filesystems without xattr support (ExFAT, some network mounts)._
+> - [ ] 2\. Shell out to xattr/osascript
+>   - _Call `xattr -wx` or AppleScript; simpler but slower and spawns a process per file._
+> - [ ] 3\. _Type something._
+>
+> </details>
+>
+
+❯ Plan accepted, auto mode.
+

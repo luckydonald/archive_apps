@@ -30,7 +30,7 @@ The package (`archive_apps/`) and the single-file version (`archive_apps.py`) co
 archive_apps/
   __main__.py   entry point, RunContext setup, atexit/signal
   cli.py        Config dataclass, RunContext dataclass, parse_args()
-  utils.py      fmt_size, fmt_duration, sha256_text, sha256_file, sanitize_temp_component
+  utils.py      fmt_size, fmt_duration, sha256_text, sha256_file, sanitize_temp_component, set_finder_color
   progress.py   ProgressBar, drain functions, run_with_bar, copy_with_progress
   io.py         tty_read, write_fail_menu, safe_write, safe_append, safe_mv, rm_retry
   zip_ops.py    checksums_from_zip, external_symlinks_from_zip, count_symlinks_from_zip
@@ -55,6 +55,14 @@ The script processes each `*.app` under `/Applications` (up to depth 2) in a sin
 4. **Archive a new app** — copies the live `.app` into a temp dir (renamed to `{AppName} {version}.app`), zips it with `ditto -c -k --sequesterRsrc --keepParent`, then writes checksums.
 
 **Atomic writes**: every output file is first written to a `.tmp` sibling and then `mv`'d into place. A `trap cleanup EXIT` removes any leftover `.tmp` files on exit.
+
+## Finder colors
+
+Zips in the destination get a Finder color label (`com.apple.FinderInfo`, `utils.set_finder_color`; silently skipped on filesystems without xattr support).
+Green = zip of the installed version and verified against the live app, red = checksum mismatch, gray = zip of another version that has a checksums file.
+Colors are collected in `ctx.zip_colors` during the run and applied once at the end by `archive.apply_zip_colors`, after deferred prompts are resolved.
+The `--verify-*` modes only mark failures red.
+The single-file `archive_apps.py` does not implement this (it already lags the package, e.g. no mismatch presets).
 
 ## Naming conventions
 

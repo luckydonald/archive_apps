@@ -71,6 +71,53 @@ def supports_xattr(path: Path) -> bool:
     return True
 
 
+FINDER_GRAY = 1
+FINDER_GREEN = 2
+FINDER_RED = 6
+
+_FINDER_INFO = b"com.apple.FinderInfo\x00"
+_FINDER_INFO_SIZE = 32
+_FINDER_COLOR_BYTE = 9
+_FINDER_COLOR_MASK = 0b1110
+
+
+def set_finder_color(path: Path, color: int) -> bool:
+    """Set the Finder color label of path, keeping all other FinderInfo bytes.
+
+    Returns True if the label is set afterwards. Purely cosmetic, so any failure
+    (missing file, filesystem without xattr support, permissions) returns False
+    instead of raising. Does not write when the label is already correct.
+    """
+    lib = ctypes.CDLL(None, use_errno=True)
+    raw = str(path).encode("utf-8")
+    buf = ctypes.create_string_buffer(_FINDER_INFO_SIZE)
+    # macOS getxattr(path, name, value, size, position, options)
+    lib.getxattr.restype = ctypes.c_ssize_t
+    got = lib.getxattr(raw, _FINDER_INFO, buf, _FINDER_INFO_SIZE, 0, 0)
+    if got == -1 and ctypes.get_errno() != errno.ENOATTR:
+        return False
+    info = bytearray(buf.raw)
+    if got == -1:
+        info = bytearray(_FINDER_INFO_SIZE)
+    new = (info[_FINDER_COLOR_BYTE] & ~_FINDER_COLOR_MASK) | (color << 1)
+    if got != -1 and info[_FINDER_COLOR_BYTE] == new:
+        return True
+    info[_FINDER_COLOR_BYTE] = new
+    out = ctypes.create_string_buffer(bytes(info), _FINDER_INFO_SIZE)
+    return lib.setxattr(raw, _FINDER_INFO, out, _FINDER_INFO_SIZE, 0, 0) == 0
+
+
+def get_finder_color(path: Path) -> int | None:
+    """Return the Finder color label (0-7) of path, or None if unreadable."""
+    lib = ctypes.CDLL(None, use_errno=True)
+    buf = ctypes.create_string_buffer(_FINDER_INFO_SIZE)
+    lib.getxattr.restype = ctypes.c_ssize_t
+    got = lib.getxattr(str(path).encode("utf-8"), _FINDER_INFO, buf, _FINDER_INFO_SIZE, 0, 0)
+    if got == -1:
+        return 0 if ctypes.get_errno() == errno.ENOATTR else None
+    return (buf.raw[_FINDER_COLOR_BYTE] & _FINDER_COLOR_MASK) >> 1
+
+
 def sanitize_temp_component(value: str) -> str:
     value = re.sub(r"[^a-zA-Z0-9.@_-]+", "_", value)
     value = value.strip("_")

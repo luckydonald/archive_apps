@@ -70,6 +70,8 @@ class RunContext:
     deferred_mismatches: list[MismatchTask] = field(default_factory=list)
     deferred_swaps: list[SwapTask] = field(default_factory=list)
     deferred_verify_mismatches: list[VerifyMismatchTask] = field(default_factory=list)
+    zip_colors: dict[str, int] = field(default_factory=dict)  # zip name -> Finder color label, applied at end of run
+    seen_zipnames: set[str] = field(default_factory=set)      # zips of apps handled this run (never grayed)
 
 
 def parse_args(argv: list[str]) -> Config:
