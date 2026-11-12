@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import errno
 import hashlib
+import plistlib
 import re
 import time
 from pathlib import Path
@@ -74,6 +75,9 @@ def supports_xattr(path: Path) -> bool:
 FINDER_GRAY = 1
 FINDER_GREEN = 2
 FINDER_RED = 6
+FINDER_ORANGE = 7
+
+_FINDER_COMMENT = b"com.apple.metadata:kMDItemFinderComment\x00"
 
 _FINDER_INFO = b"com.apple.FinderInfo\x00"
 _FINDER_INFO_SIZE = 32
@@ -116,6 +120,32 @@ def get_finder_color(path: Path) -> int | None:
     if got == -1:
         return 0 if ctypes.get_errno() == errno.ENOATTR else None
     return (buf.raw[_FINDER_COLOR_BYTE] & _FINDER_COLOR_MASK) >> 1
+
+
+def get_finder_comment(path: Path) -> str | None:
+    """Return the Finder comment of path ('' if none), or None if unreadable."""
+    lib = ctypes.CDLL(None, use_errno=True)
+    raw = str(path).encode("utf-8")
+    lib.getxattr.restype = ctypes.c_ssize_t
+    size = lib.getxattr(raw, _FINDER_COMMENT, None, 0, 0, 0)
+    if size == -1:
+        return "" if ctypes.get_errno() == errno.ENOATTR else None
+    buf = ctypes.create_string_buffer(size)
+    got = lib.getxattr(raw, _FINDER_COMMENT, buf, size, 0, 0)
+    if got == -1:
+        return None
+    try:
+        value = plistlib.loads(buf.raw[:got])
+    except Exception:
+        return None
+    return value if isinstance(value, str) else None
+
+
+def set_finder_comment(path: Path, text: str) -> bool:
+    """Set the Finder comment of path. Purely cosmetic: any failure returns False instead of raising."""
+    lib = ctypes.CDLL(None, use_errno=True)
+    data = plistlib.dumps(text, fmt=plistlib.FMT_BINARY)
+    return lib.setxattr(str(path).encode("utf-8"), _FINDER_COMMENT, data, len(data), 0, 0) == 0
 
 
 def sanitize_temp_component(value: str) -> str:

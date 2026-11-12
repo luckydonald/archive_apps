@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import glob
 import plistlib
 import random
 import sys
+import time
 from pathlib import Path
 
 from .app_ops import (
@@ -12,7 +14,10 @@ from .app_ops import (
 )
 from .cli import MismatchTask, RunContext, SwapTask, VerifyMismatchTask
 from .io import tty_read, tty_read_timeout
-from .utils import FINDER_GRAY, FINDER_GREEN, FINDER_RED, fmt_size, now_suffix, set_finder_color, sha256_text, tagged_names
+from .utils import (
+    FINDER_GRAY, FINDER_GREEN, FINDER_ORANGE, FINDER_RED, fmt_size, get_finder_comment, now_suffix,
+    set_finder_color, set_finder_comment, sha256_text, tagged_names,
+)
 from .verify import (
     handle_external_symlinks, print_external_symlink_summary,
     print_verify_failure_summary, record_verify_failure,
@@ -34,6 +39,52 @@ def apply_zip_colors(ctx: RunContext) -> None:
             continue
         if zip_path.with_name(name.removesuffix(".zip") + ".checksums.txt").exists():
             set_finder_color(zip_path, FINDER_GRAY)
+
+
+COMMENT_PREFIX = "archive_apps:"
+
+
+def _fmt_mtime(path: Path) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(path.stat().st_mtime))
+
+
+def app_mark_state(
+    dest: Path, name: str, mobile: str, version: str, zipname: str, zip_colors: dict[str, int],
+) -> tuple[int, str]:
+    """Return (Finder color, comment) for the live app, from the final state of its zips in dest."""
+    zip_path = dest / zipname
+    if zip_path.exists():
+        when = _fmt_mtime(zip_path)
+        if zip_colors.get(zipname) == FINDER_GREEN:
+            return FINDER_GREEN, f"{COMMENT_PREFIX} backed up {when} (version {version}), verified"
+        return FINDER_RED, f"{COMMENT_PREFIX} backed up {when} (version {version}), checksum MISMATCH"
+    prefix = f"{name}.app@{mobile}"
+    older = []
+    for other in dest.glob(f"{glob.escape(prefix)}*.zip"):
+        other_version = other.name.removeprefix(prefix).removesuffix(".zip")
+        if "~" in other_version or (not mobile and other_version.startswith("mobile@")):
+            continue
+        if other.with_name(other.name.removesuffix(".zip") + ".checksums.txt").exists():
+            older.append((other.stat().st_mtime, other, other_version))
+    if older:
+        _, newest, other_version = max(older)
+        return FINDER_ORANGE, (
+            f"{COMMENT_PREFIX} version {version} not backed up; "
+            f"newest backup is {other_version} from {_fmt_mtime(newest)}"
+        )
+    return FINDER_RED, f"{COMMENT_PREFIX} never backed up"
+
+
+def apply_app_marks(ctx: RunContext) -> None:
+    """Write Finder color + comment onto the live apps. Best effort; a foreign comment is never overwritten."""
+    if not ctx.cfg.mark_apps:
+        return
+    for app, (name, mobile, version, zipname) in ctx.app_zips.items():
+        color, comment = app_mark_state(ctx.cfg.dest, name, mobile, version, zipname, ctx.zip_colors)
+        set_finder_color(app, color)
+        existing = get_finder_comment(app)
+        if existing == "" or (existing is not None and existing.startswith(COMMENT_PREFIX)):
+            set_finder_comment(app, comment)
 
 
 def plist_value(plist_path: Path, key: str) -> str | None:
@@ -191,6 +242,7 @@ def run_archive(ctx: RunContext) -> None:
 
         print(f"ARCHIVING {idx}/{total}: {zipname}")
         ctx.seen_zipnames.add(zipname)
+        ctx.app_zips[app] = (name, mobile, version, zipname)
 
         live_symlink_count = count_live_symlinks(app)
         live_external_symlinks = collect_external_live_symlinks(app)
@@ -323,6 +375,7 @@ def run_archive(ctx: RunContext) -> None:
             _resolve_verify_mismatch(task, ctx, timeout=None)
 
     apply_zip_colors(ctx)
+    apply_app_marks(ctx)
     print_external_symlink_summary(ctx)
     print_verify_failure_summary(ctx)
     if ctx.verify_failure_summary:

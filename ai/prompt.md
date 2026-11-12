@@ -1147,3 +1147,40 @@ I was using the `Makefile` file the whole time which explains why I thought the 
 
 ❯ Fix the `.run` one, too.
 
+❯ Question answered.
+> <details><summary>
+>
+>> 1. The first open todo (comment + color on the real app in /Applications) is ambiguous. What does 'updated' mean for the comment and for red/orange?
+>> 2. Should the Finder comment and color be written on the live .app in /Applications (it may need permissions and modifies the real app's metadata)?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Meaning** (1/2) <kbd>Single Select</kbd><br>
+>> The first open todo (comment + color on the real app in /Applications) is ambiguous. What does 'updated' mean for the comment and for red/orange?
+> - [ ] 1\. Archive state (Recommended)
+>   - _Comment = 'Archived <date>, version X' written when the zip is created/verified. Red = installed version has no zip yet or its zip mismatches, orange = installed version not archived but an older version's zip exists, green = zip of installed version exists and hashes match, gray = checksum mismatch._
+> - [ ] 2\. App update time
+>   - _Comment = date the app bundle was last modified (mtime) plus archive status. Colors as in the other option, but 'never updated' means the bundle was never changed since the first archive._
+> - [ ] 3\. Let me explain
+>   - _I will describe the intended meaning in my own words._
+> - [x] 4\. _Type something:_
+>   - > date of backup, and the success state. Checksum mismatches orange too.
+>
+>> **Write target** (2/2) <kbd>Single Select</kbd><br>
+>> Should the Finder comment and color be written on the live .app in /Applications (it may need permissions and modifies the real app's metadata)?
+> - [ ] 1\. Yes, best effort (Recommended)
+>   - _Write to the real .app; silently skip on permission or xattr failures, and add a --no-mark-apps flag to disable._
+> - [ ] 2\. Opt-in flag only
+>   - _Only write when a new --mark-apps flag is passed._
+> - [x] 3\. _Type something:_
+>   - > Yes, best effort.
+>
+> </details>
+>
+
+❯ Plan accepted, auto mode.
+
+❯ Ah, make the mismatch red
+

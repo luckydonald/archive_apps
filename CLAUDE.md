@@ -63,6 +63,10 @@ Green = zip of the installed version and verified against the live app, red = ch
 Colors are collected in `ctx.zip_colors` during the run and applied once at the end by `archive.apply_zip_colors`, after deferred prompts are resolved.
 The `--verify-*` modes only mark failures red.
 
+The live apps in `/Applications` get a Finder color and a Finder comment (`kMDItemFinderComment`) too, from `archive.apply_app_marks` after the zip colors (best effort, `--no-mark-apps` disables it).
+Green = zip of the installed version verified, orange = only older versions backed up, red = checksum mismatch or never backed up.
+The comment (`archive_apps: backed up <date> …`) is only replaced when empty or already ours, so a user's own comment is kept.
+
 ## Naming conventions
 
 | File | Pattern |

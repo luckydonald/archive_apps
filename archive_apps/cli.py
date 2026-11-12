@@ -17,6 +17,7 @@ class Config:
     on_mismatch: str | None        # None | "overwrite" | "both" | "skip"
     mismatch_swap: str | None      # None | "yes" | "no"
     on_verify_mismatch: str | None  # None | "retry" | "delete" | "keep"
+    mark_apps: bool = True         # write Finder color + comment onto the live apps
 
 
 @dataclass
@@ -72,6 +73,7 @@ class RunContext:
     deferred_verify_mismatches: list[VerifyMismatchTask] = field(default_factory=list)
     zip_colors: dict[str, int] = field(default_factory=dict)  # zip name -> Finder color label, applied at end of run
     seen_zipnames: set[str] = field(default_factory=set)      # zips of apps handled this run (never grayed)
+    app_zips: dict[Path, tuple[str, str, str, str]] = field(default_factory=dict)  # app -> (name, mobile, version, zipname)
 
 
 def parse_args(argv: list[str]) -> Config:
@@ -82,6 +84,7 @@ def parse_args(argv: list[str]) -> Config:
     external_symlink_policy = "archive"
     verify_abort = False
     keep_temp = False
+    mark_apps = True
     on_mismatch: str | None = None
     mismatch_swap: str | None = None
     on_verify_mismatch: str | None = None
@@ -118,6 +121,7 @@ def parse_args(argv: list[str]) -> Config:
             print("                    preset the choice when a freshly-created zip fails its")
             print("                    own post-creation verification; default: prompt")
             print("                    interactively (60s timeout defers to end of run)")
+            print("  --no-mark-apps    do not write the Finder color/comment onto the apps in /Applications")
             print("  destination       archive directory (default: /Users/Shared/App Versions)")
             sys.exit(0)
         elif arg == "--verify-zip":
@@ -133,6 +137,8 @@ def parse_args(argv: list[str]) -> Config:
             verify_mode = "changed"
         elif arg == "--verify-abort":
             verify_abort = True
+        elif arg == "--no-mark-apps":
+            mark_apps = False
         elif arg == "--keep-temp":
             keep_temp = True
         elif arg in ("--local-cache", "--local-cache=", "--local-cache=default"):
@@ -206,4 +212,5 @@ def parse_args(argv: list[str]) -> Config:
         on_mismatch=on_mismatch,
         mismatch_swap=mismatch_swap,
         on_verify_mismatch=on_verify_mismatch,
+        mark_apps=mark_apps,
     )
