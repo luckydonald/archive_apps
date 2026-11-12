@@ -8,7 +8,7 @@ metadata:
   modified: 2026-08-30T18:27:07.306Z
 ---
 
-`archive_apps.sh` was removed from the repo on 2026-08-30 (commit "Remove archive_apps.sh; Python package is the active implementation"). Only `archive_apps.py` (single-file fallback) and the `archive_apps/` package remain, and CLAUDE.md was updated to stop describing the shell script.
+`archive_apps.sh` was removed from the repo on 2026-08-30 (commit "Remove archive_apps.sh; Python package is the active implementation"). Only `archive_apps.py` (single-file fallback, itself removed later, see [[project_single_file_removed]]) and the `archive_apps/` package remained then, and CLAUDE.md was updated to stop describing the shell script.
 
 **Why:** User's own call — "the .sh should be removed anyway, as .py is the future" — made while scoping [[project_checksum_index_concurrency_fix]], since fixing a bug in code slated for deletion wasn't worth the effort.
 

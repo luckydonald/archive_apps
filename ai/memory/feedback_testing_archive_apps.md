@@ -1,6 +1,6 @@
 ---
 name: feedback_testing_archive_apps
-description: How to safely test functions from archive_apps.py / archive_apps/ without triggering the main archive loop
+description: How to run and write tests for the archive_apps package (pytest invocation, safe imports, fake destination)
 metadata:
   node_type: memory
   type: feedback
@@ -8,18 +8,8 @@ metadata:
   modified: 2026-08-30T18:26:59.135Z
 ---
 
-`archive_apps.sh` was removed 2026-08-30 (see [[project_shell_script_removed]]) — the Python package and `archive_apps.py` are now the only implementations, and `bash`-sourcing risk no longer applies.
+The single-file `archive_apps.py` was removed 2026-11-12 (see [[project_single_file_removed]]), so there is no import-shadowing gotcha any more: `import archive_apps` loads the package.
 
-**Testing archive_apps.py (single file):** `import archive_apps` from the repo root will NOT load this file — a same-named package (`archive_apps/`) shadows it, since Python prefers a regular package over a sibling module of the same name on the same path. Load it explicitly instead:
+**Testing the package:** run tests with `uv run --with pytest python -m pytest tests` (plain `pytest` does not put the repo root on `sys.path`). Importing the package is safe on its own — `main()` only runs under `if __name__ == "__main__":`, so no archive/verify side effects happen just from importing. To exercise real behavior without touching real data, build a fake destination dir with `zipfile` (top-level entry must be `SomeName.app/...` or `checksums_from_zip` treats it as unreadable) and construct `RunContext(cfg=...)` directly (see `tests/test_termination.py`) rather than going through `parse_args`.
 
-```python
-import importlib.util, sys
-spec = importlib.util.spec_from_file_location("archive_apps_single", "archive_apps.py")
-mod = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = mod   # required: dataclass field resolution needs this in sys.modules before exec
-spec.loader.exec_module(mod)
-```
-
-Importing either the file (via the loader above) or the package (`import archive_apps`) is safe on its own — `main()` only runs under `if __name__ == "__main__":`, so no archive/verify side effects happen just from loading. To exercise real behavior without touching real data, build a fake destination dir with `zipfile` (top-level entry must be `SomeName.app/...` or `checksums_from_zip` treats it as unreadable) and set `mod._cfg` / `RunContext(cfg=...)` directly rather than going through `parse_args`.
-
-**Why:** Hit both issues live while testing the [[project_checksum_index_concurrency_fix]] work — silently got the wrong module (the package, missing single-file-only helpers) on the first attempt, and a plain `module_from_spec` + `exec_module` crashed inside `dataclasses` because `sys.modules` wasn't populated yet.
+**Why:** The import-shadowing and `sys.modules`/dataclass pitfalls were hit while testing the [[project_checksum_index_concurrency_fix]] work and only applied to the single file.

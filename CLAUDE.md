@@ -20,9 +20,7 @@ uv tool install .
 archive-apps [options] [destination]
 ```
 
-The package (`archive_apps/`) and the single-file version (`archive_apps.py`) coexist; both implement the identical CLI. `archive_apps.py` is kept as a standalone fallback.
-
-(The original `archive_apps.sh` Bash implementation has been removed — the Python package is the actively developed version going forward.)
+The Python package `archive_apps/` is the only implementation. The original `archive_apps.sh` Bash version and the later single-file `archive_apps.py` have been removed (the latter was dropped on 2026-11-12 after it had fallen behind the package; the `Makefile` runs the package via `-m archive_apps`).
 
 ### Package layout
 
@@ -46,13 +44,15 @@ pyproject.toml  [project.scripts] archive-apps = "archive_apps.__main__:main"
 The script processes each `*.app` under `/Applications` (up to depth 2) in a single `while` loop:
 
 1. **Locate Info.plist** — checks `Contents/Info.plist` first; falls back to `WrappedBundle/Info.plist` for iOS-on-Mac apps (which get a `mobile@` infix in the filename).
-2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib` (Python package) or `PlistBuddy` (single-file `archive_apps.py`).
+2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib`.
 3. **Check if zip already exists** at `{dest}/{AppName}.app@[mobile@]{version}.zip`:
    - If the zip exists and a matching `.checksums.txt` also exists → skip entirely.
    - If the zip exists but the checksums file is missing → extract the zip to a temp dir, compute checksums for both the extracted copy and the live app, compare:
      - Equal → write the checksums file.
      - Mismatch → prompt interactively: **[o]verwrite** the zip (replace with current live app), **[b]oth** (keep existing zip + write new zip with a timestamp suffix), or **[s]kip**.
 4. **Archive a new app** — copies the live `.app` into a temp dir (renamed to `{AppName} {version}.app`), zips it with `ditto -c -k --sequesterRsrc --keepParent`, then writes checksums.
+
+**Local cache**: with `--local-cache`, new zips are built on local disk and then sent to the destination by `app_ops.send_file`, which uses `rsync` when installed and falls back to a Python copy.
 
 **Atomic writes**: every output file is first written to a `.tmp` sibling and then `mv`'d into place. A `trap cleanup EXIT` removes any leftover `.tmp` files on exit.
 
@@ -62,7 +62,6 @@ Zips in the destination get a Finder color label (`com.apple.FinderInfo`, `utils
 Green = zip of the installed version and verified against the live app, red = checksum mismatch, gray = zip of another version that has a checksums file.
 Colors are collected in `ctx.zip_colors` during the run and applied once at the end by `archive.apply_zip_colors`, after deferred prompts are resolved.
 The `--verify-*` modes only mark failures red.
-The single-file `archive_apps.py` does not implement this (it already lags the package, e.g. no mismatch presets).
 
 ## Naming conventions
 
