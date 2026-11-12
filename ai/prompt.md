@@ -1145,3 +1145,5 @@ I was using the `Makefile` file the whole time which explains why I thought the 
 
 ❯ Plan accepted, auto mode.
 
+❯ Fix the `.run` one, too.
+
