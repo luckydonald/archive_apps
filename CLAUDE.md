@@ -41,7 +41,8 @@ pyproject.toml  [project.scripts] archive-apps = "archive_apps.__main__:main"
 
 ## Architecture / logic flow
 
-The script processes each `*.app` under `/Applications` (up to depth 2) in a single `while` loop:
+The script processes each `*.app` under `/Applications` (up to depth 2) in a single `while` loop.
+The order comes from `archive.order_apps`: apps without a zip for their installed version in the destination first, then the rest, then apps without an Info.plist, each group in random order.
 
 1. **Locate Info.plist** — checks `Contents/Info.plist` first; falls back to `WrappedBundle/Info.plist` for iOS-on-Mac apps (which get a `mobile@` infix in the filename).
 2. **Derive name and version** from `CFBundleName` / `CFBundleShortVersionString` via `plistlib`.

@@ -1184,3 +1184,7 @@ I was using the `Makefile` file the whole time which explains why I thought the 
 
 ❯ Ah, make the mismatch red
 
+❯ Ah, moving unzipped apps first makes sense!
+
+❯ Plan accepted, auto mode.
+

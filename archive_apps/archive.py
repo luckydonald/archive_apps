@@ -206,13 +206,42 @@ def _resolve_verify_mismatch(task: VerifyMismatchTask, ctx: RunContext, timeout:
         print("  KEPT: left as-is (see verification failure summary)")
 
 
+def app_identity(app: Path) -> tuple[str, str, str] | None:
+    """Return `(name, mobile, version)` of an app, `mobile` being `"mobile@"` for iOS-on-Mac apps; `None` without an Info.plist."""
+    plist = app / "Contents/Info.plist"
+    mobile = ""
+    if not plist.is_file():
+        plist = app / "WrappedBundle/Info.plist"
+        mobile = "mobile@"
+    if not plist.is_file():
+        return None
+    name = plist_value(plist, "CFBundleName") or app.stem
+    version = plist_value(plist, "CFBundleShortVersionString") or "unknown"
+    return name, mobile, version
+
+
+def order_apps(apps: list[Path], dest: Path) -> list[Path]:
+    """Shuffle the apps, then put those without a zip in `dest` first and those without an Info.plist last."""
+    apps = list(apps)
+    random.shuffle(apps)
+
+    def rank(app: Path) -> int:
+        identity = app_identity(app)
+        if identity is None:
+            return 2
+        name, mobile, version = identity
+        return 1 if (dest / f"{name}.app@{mobile}{version}.zip").exists() else 0
+
+    return sorted(apps, key=rank)  # stable, so the shuffle stays the tie-break within a group
+
+
 def run_archive(ctx: RunContext) -> None:
     cfg = ctx.cfg
     apps = [
         p for p in Path("/Applications").glob("**/*.app")
         if p.is_dir() and len(p.relative_to("/Applications").parts) <= 2
     ]
-    random.shuffle(apps)
+    apps = order_apps(apps, cfg.dest)
 
     total = len(apps)
     width = len(str(total))
@@ -221,19 +250,13 @@ def run_archive(ctx: RunContext) -> None:
     for i, app in enumerate(apps, 1):
         idx = str(i).zfill(width)
 
-        plist = app / "Contents/Info.plist"
-        mobile = ""
-        if not plist.is_file():
-            plist = app / "WrappedBundle/Info.plist"
-            mobile = "mobile@"
-        if not plist.is_file():
+        identity = app_identity(app)
+        if identity is None:
             print(f"ARCHIVING {idx}/{total}: {app}")
             print(f"  app: {fmt_size(app)}")
             print("  SKIPPING ⚠️: no Info.plist")
             continue
-
-        name = plist_value(plist, "CFBundleName") or app.stem
-        version = plist_value(plist, "CFBundleShortVersionString") or "unknown"
+        name, mobile, version = identity
 
         zipname = f"{name}.app@{mobile}{version}.zip"
         checksumname = f"{name}.app@{mobile}{version}.checksums.txt"
