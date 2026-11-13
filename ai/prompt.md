@@ -1188,3 +1188,44 @@ I was using the `Makefile` file the whole time which explains why I thought the 
 
 ❯ Plan accepted, auto mode.
 
+❯ There was a todo about running the verify zip stuff after the copy and before the final summary & timeout-retry stuff, is that do e already?
+
+❯ Alright, might not been a recorded todo.
+
+Generally I want to merge the --verify stuff into the main program completely.
+
+And yes, the run over all zips should happen, too, but always prioritize the current apps, and moreover their backup to come first, time/order wise.
+
+❯ Question answered.
+> <details><summary>
+>
+>> 1. Which verify mode should the integrated zip pass use by default in a normal run?
+>> 2. What should happen to the old `--verify-zips/--verify-new/--verify-changed/--verify-zip=APP` flags?
+>
+> (click to expand)
+>
+> </summary>
+>
+>> **Default mode** (1/2) <kbd>Single Select</kbd><br>
+>> Which verify mode should the integrated zip pass use by default in a normal run?
+> - [ ] 1\. changed (Recommended)
+>   - _Hash each zip and checksums file, compare to the checksum index, and fully re-verify only the ones that differ or are not indexed. Cheap on repeat runs, still catches bit rot and edits._
+> - [ ] 2\. new
+>   - _Only verify zips not yet in the index. Cheapest, but never notices later corruption._
+> - [ ] 3\. zips
+>   - _Fully extract and verify every zip on every run. Most thorough, but slow with this many zips._
+> - [x] 4\. _Type something:_
+>   - > All of the above, but staged. first create all zips. Then check newly created zips. Then check all changed, then all new. Finally check the remaining zips too. Each state should clearly communicate where it is - maybe a bit more TUI-ish, like a checklist with green checkmarks for what’s completed there in the overal progress and below the details in that block. The further we‘re down in that priority list, the more it’s fine to interrupt it. But if you just let it run and forget about it anyways it may be helpful and thorough.
+>
+>> **Flags** (2/2) <kbd>Single Select</kbd><br>
+>> What should happen to the old `--verify-zips/--verify-new/--verify-changed/--verify-zip=APP` flags?
+> - [ ] 1\. Keep as modifiers (Recommended)
+>   - _A normal run does archive + verify pass. `--verify-zips|new|changed` pick the mode, `--verify-zip=APP` limits the pass to one app, and a new `--no-verify` skips the pass. `--verify-only` skips the archive step._
+> - [ ] 2\. Remove them
+>   - _Drop all the old flags and replace them with one `--verify=MODE` (changed|new|zips|none) plus `--verify-only`._
+> - [x] 3\. _Type something:_
+>   - > Basically make it skip steps/target only those. Make it Alia’s for some proper step selection cli flag
+>
+> </details>
+>
+
