@@ -322,3 +322,4 @@ Closed (no CalDAV equivalent):
   > - 6b7a9b60000c674ceecebae778b6b5dd6f454f33
   > - c2c1d8af9ed32e2c722e57ce20f1f9cc0cc3a97f
 - [x] Add `/commit-lplp-style` + `fold` / `unpushed` to prompt whitelist. — `todo:7a963fde-75b7-493a-8861-f6c44f291157` _(done)_
+- [ ] Dissallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759`

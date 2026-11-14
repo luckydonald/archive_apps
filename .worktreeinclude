@@ -1,0 +1,8 @@
+# Gitignored files Paseo copies into every new worktree (gitignore syntax, only files that are also ignored are copied).
+ai/.env
+ai/settings.local.json
+ai/settings/*.local.json
+.claude/settings.local.json
+.codex/hooks.local.json
+.codex/rules/generated.local.rules
+.github/hooks/generated.local.json
