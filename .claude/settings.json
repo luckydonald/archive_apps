@@ -373,6 +373,7 @@
       "mcp__sync_todo__list_calendar_accounts",
       "mcp__sync_todo__get_calendar_account",
       "mcp__sync_todo__get_user_settings",
+      "mcp__paseo__progress_deliverable_add",
       "Bash(echo \"---\")",
       "Bash(echo ---)",
       "Bash(echo '---')"

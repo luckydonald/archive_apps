@@ -381,6 +381,7 @@
       {"type": "mcp", "server": "sync_todo", "tool": "list_calendar_accounts"},
       {"type": "mcp", "server": "sync_todo", "tool": "get_calendar_account"},
       {"type": "mcp", "server": "sync_todo", "tool": "get_user_settings"},
+      {"type": "mcp", "server": "paseo", "tool": "progress_deliverable_add"},
       {"type": "bash", "command": "echo \"---\""},
       {"type": "bash", "command": "echo ---"},
       {"type": "bash", "command": "echo '---'"}
