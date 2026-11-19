@@ -100,6 +100,21 @@ def test_render_shows_the_priority_after_the_uid():
 # end def
 
 
+def test_in_process_checkbox_round_trips_through_completion() -> None:
+    project = PROJECTS[0]
+    item = todo("a", "do it")
+    in_process = {**item, "status": "IN-PROCESS"}
+    claimed_line = "- […] do it — `todo:a` _(in process)_"
+
+    assert st.render(in_process, project) == [claimed_line]
+    open_line = st.render(item, project)[0]
+    assert open_line == "- [ ] do it — `todo:a`"
+    updated_line = st.update_line(open_line, in_process, project)
+    assert updated_line == claimed_line
+    assert st.update_line(updated_line, {**item, "status": "COMPLETED"}, project) == "- [x] do it — `todo:a` _(done)_"
+# end def
+
+
 def test_merge_refreshes_priority_and_keeps_notes():
     text = "# Todos\n\n- [ ] it — `todo:a` _(prio 9₍₉₎ lowest)_ (hand note)\n"
     new, _ = st.merge(text, [todo("a", "it", priority=1)], PROJECTS[0])

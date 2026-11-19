@@ -324,5 +324,5 @@ Closed (no CalDAV equivalent):
 - [x] Add `/commit-lplp-style` + `fold` / `unpushed` to prompt whitelist. — `todo:7a963fde-75b7-493a-8861-f6c44f291157` _(done)_
 - [x] Disallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759`
 - [x] download_ref.py: Before falling back to the html converter, check if an `Edit this page on GitHub` link exists. — `todo:7f53d54c-e995-460d-9b24-a87bfdd2d930` _(done)_
-- [ ] in the `/todo-loop` skill, mention to set the todo to in progress when being in a git worktree, so other agents can skip it. — `todo:1382d491-4c32-401f-8f81-d3d57fbaafc8`
+- [x] in the `/todo-loop` skill, mention to set the todo to in progress when being in a git worktree, so other agents can skip it. — `todo:1382d491-4c32-401f-8f81-d3d57fbaafc8` _(done)_
   > - While at it, make sure that that state is written to `todos.md` in the sync script.
