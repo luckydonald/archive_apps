@@ -8356,3 +8356,5 @@ Probably `projects` should stay a dictionary like in the local file?
 
 ❯ Adjust your records about unit tests in the base project to use UV instead of the system python
 
+❯ [/todo-loop](../skills/todo-loop/SKILL.md) plan for all three open todos.
+

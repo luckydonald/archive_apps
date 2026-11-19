@@ -397,7 +397,8 @@
       {"type": "read", "path": "**/.aws/**"},
       {"type": "read", "path": "**/.ssh/**"},
       {"type": "bash", "command": "find /"},
-      {"type": "bash", "command": "find / :*"}
+      {"type": "bash", "command": "find /*"},
+      {"type": "bash", "command": "find * /*"}
     ]
   },
   "plugins": {

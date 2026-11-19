@@ -33,7 +33,7 @@ def render_codex_rules(shared: dict[str, Any]) -> str:
         lines.append("")
         lines.append(
             f"# {len(skipped)} command permission(s) could not be translated to a Codex "
-            "prefix rule and were skipped (compound/redirected/substituted commands)."
+            "prefix rule and were skipped (shell syntax or non-prefix wildcards)."
         )
         for entry in skipped:
             lines.append(f"# {json.dumps(entry, ensure_ascii=False)}")

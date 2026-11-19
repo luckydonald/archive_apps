@@ -389,7 +389,8 @@
       "Read(**/.aws/**)",
       "Read(**/.ssh/**)",
       "Bash(find /)",
-      "Bash(find / :*)"
+      "Bash(find /*)",
+      "Bash(find * /*)"
     ]
   },
   "enabledPlugins": {

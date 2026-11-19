@@ -110,10 +110,10 @@ def _bash_pattern_to_prefix(command: str) -> list[str] | None:
     stripped = command
     if stripped.endswith(":*"):
         stripped = stripped[:-2]
-    elif stripped.endswith("*"):
+    elif stripped.endswith(" *"):
         stripped = stripped[:-1].rstrip()
     stripped = stripped.strip()
-    if not stripped:
+    if not stripped or "*" in stripped:
         return None
 
     try:

@@ -623,6 +623,11 @@ class CommandsTests(unittest.TestCase):
     def test_bash_pattern_to_prefix_strips_bare_wildcard(self):
         self.assertEqual(commands._bash_pattern_to_prefix("uv lock *"), ["uv", "lock"])
 
+    def test_bash_pattern_to_prefix_rejects_non_prefix_wildcards(self) -> None:
+        self.assertIsNone(commands._bash_pattern_to_prefix("find /*"))
+        self.assertIsNone(commands._bash_pattern_to_prefix("find * /*"))
+    # end def
+
     def test_bash_pattern_to_prefix_plain_literal(self):
         self.assertEqual(commands._bash_pattern_to_prefix("git branch --show-current"), ["git", "branch", "--show-current"])
 
