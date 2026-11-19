@@ -17,6 +17,7 @@ LIB_ROOT = ROOT / "scripts" / "°base" / "ai" / "references"
 sys.path.insert(0, str(LIB_ROOT))
 MODULE = importlib.import_module("°dllink_lib")
 cli = importlib.import_module("°dllink_lib.cli")
+html_converter = importlib.import_module("°dllink_lib.html")
 providers = importlib.import_module("°dllink_lib.providers")
 generic_provider = importlib.import_module("°dllink_lib.providers.generic")
 config = importlib.import_module("°dllink_lib.config")
@@ -204,6 +205,92 @@ class DownloadLinkPathTests(unittest.TestCase):
                 "oc-pony-spotlight-littlepip.html/_.md"
             ),
         )
+
+    def test_cli_prefers_markdown_from_github_edit_link(self) -> None:
+        url = "https://docs.example.com/guide.html"
+        sha = "a" * 40
+        edit_url = f"https://github.com/owner/repo/edit/{sha}/docs/guide.md"
+        raw_url = f"https://raw.githubusercontent.com/owner/repo/{sha}/docs/guide.md"
+        html = f'<h1>Rendered guide</h1><a href="{edit_url}"><span>Edit this page</span> on GitHub</a>'
+        markdown = b"# Source guide\n"
+        fetch = FakeFetch({
+            (url, "GET"): MODULE.Response(url, 200, html.encode(), "text/html"),
+            (raw_url, "GET"): MODULE.Response(raw_url, 200, markdown, "text/plain"),
+        })
+
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(cli, "fetch_url", fetch):
+            output_root = Path(directory)
+            exit_code = cli.main([url, "--output-root", directory, "--no-git", "--no-open-ide"])
+            self.assertEqual(exit_code, 0)
+            self.assertEqual((output_root / "https/docs.example.com/guide.html/_.md").read_bytes(), markdown)
+        # end with
+
+        self.assertEqual(fetch.calls, [
+            ("https://docs.example.com/guide.md", "GET"),
+            ("https://docs.example.com/guide.html.md", "GET"),
+            (url, "GET"),
+            (raw_url, "GET"),
+        ])
+    # end def
+
+    def test_edit_href_resolves_branch_and_accepts_mdx(self) -> None:
+        url = "https://docs.example.com/guide/"
+        sha = "b" * 40
+        api = "https://api.github.com/repos/owner/repo/git/ref/heads/main"
+        raw_url = f"https://raw.githubusercontent.com/owner/repo/{sha}/docs/guide.mdx"
+        html = b'<a aria-label="Edit" href="//github.com/owner/repo/edit/main/docs/guide.mdx?plain=1#L4"></a>'
+        fetch = FakeFetch({
+            (url, "GET"): MODULE.Response(url, 200, html, "text/html"),
+            (api, "GET"): MODULE.Response(api, 200, f'{{"object":{{"sha":"{sha}"}}}}'.encode(), "application/json"),
+            (raw_url, "GET"): MODULE.Response(raw_url, 200, b"## MDX\n", "text/plain"),
+        })
+
+        plan = MODULE.resolve_plan(url, Path("ai/references"), fetch)
+        result = MODULE.download(plan, fetch)
+
+        self.assertEqual(result.path, plan.output_path)
+        self.assertEqual(result.content, b"## MDX\n")
+        self.assertEqual(result.downloaded_url, raw_url)
+        self.assertEqual(fetch.calls, [(url, "GET"), (api, "GET"), (raw_url, "GET")])
+    # end def
+
+    def test_html_conversion_survives_unusable_edit_link(self) -> None:
+        url = "https://docs.example.com/guide/"
+        sha = "c" * 40
+        edit_url = f"https://github.com/owner/repo/edit/{sha}/guide.md"
+        raw_url = f"https://raw.githubusercontent.com/owner/repo/{sha}/guide.md"
+        cases = [
+            ("No edit link", "", None),
+            ("Non-GitHub link", edit_url.replace("github.com", "github.example"), None),
+            ("reStructuredText source", edit_url.removesuffix(".md") + ".rst", None),
+            ("Notebook source", edit_url.removesuffix(".md") + ".ipynb", None),
+            ("Raw source is missing", edit_url, MODULE.Response(raw_url, 404, b"missing", "text/plain")),
+            ("Raw source is HTML", edit_url, MODULE.Response(raw_url, 200, b"<html>error</html>", "text/html")),
+        ]
+        for name, href, raw_response in cases:
+            with self.subTest(name=name):
+                html = "<h1>Rendered guide</h1>"
+                if href:
+                    html += f'<a href="{href}">Edit this page on GitHub</a>'
+                # end if
+                responses = {(url, "GET"): MODULE.Response(url, 200, html.encode(), "text/html")}
+                if raw_response is not None:
+                    responses[(raw_url, "GET")] = raw_response
+                # end if
+                fetch = FakeFetch(responses)
+                plan = MODULE.resolve_plan(url, Path("ai/references"), fetch)
+                result = MODULE.download(plan, fetch)
+                self.assertEqual(result.path, plan.output_path)
+                self.assertEqual(result.content, html_converter.html_to_markdown(html).encode())
+                self.assertEqual(result.downloaded_url, url)
+                expected_calls = [(url, "GET")]
+                if raw_response is not None:
+                    expected_calls.append((raw_url, "GET"))
+                # end if
+                self.assertEqual(fetch.calls, expected_calls)
+            # end with
+        # end for
+    # end def
 
     def test_cloudflare_challenge_falls_back_to_latest_archive_snapshot(self):
         url = "https://nixos.wiki/wiki/NixOS_on_ARM/Raspberry_Pi"

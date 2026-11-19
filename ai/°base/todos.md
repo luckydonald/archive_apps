@@ -322,7 +322,7 @@ Closed (no CalDAV equivalent):
   > - 6b7a9b60000c674ceecebae778b6b5dd6f454f33
   > - c2c1d8af9ed32e2c722e57ce20f1f9cc0cc3a97f
 - [x] Add `/commit-lplp-style` + `fold` / `unpushed` to prompt whitelist. — `todo:7a963fde-75b7-493a-8861-f6c44f291157` _(done)_
-- [ ] Dissallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759`
-- [ ] download_ref.py: Before falling back to the html converter, check if an `Edit this page on GitHub` link exists. — `todo:7f53d54c-e995-460d-9b24-a87bfdd2d930`
+- [x] Disallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759`
+- [x] download_ref.py: Before falling back to the html converter, check if an `Edit this page on GitHub` link exists. — `todo:7f53d54c-e995-460d-9b24-a87bfdd2d930` _(done)_
 - [ ] in the `/todo-loop` skill, mention to set the todo to in progress when being in a git worktree, so other agents can skip it. — `todo:1382d491-4c32-401f-8f81-d3d57fbaafc8`
   > - While at it, make sure that that state is written to `todos.md` in the sync script.

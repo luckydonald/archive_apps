@@ -8,6 +8,55 @@ from pathlib import Path
 from .models import DownloadPlan
 
 
+class EditLinkParser(html.parser.HTMLParser):
+    def __init__(self, page_url: str) -> None:
+        super().__init__()
+        self.page_url = page_url
+        self.href: str | None = None
+        self.text: list[str] = []
+        self.blob_url: str | None = None
+    # end def
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a" and self.blob_url is None:
+            self.href = dict(attrs).get("href")
+            self.text.clear()
+        # end if
+    # end def
+
+    def handle_data(self, data: str) -> None:
+        if self.href:
+            self.text.append(data)
+        # end if
+    # end def
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag != "a" or not self.href:
+            return
+        # end if
+        href, self.href = self.href, None
+        try:
+            parts = urllib.parse.urlsplit(urllib.parse.urljoin(self.page_url, href))
+        except ValueError:
+            return
+        if parts.scheme not in {"http", "https"} or parts.netloc.lower() != "github.com":
+            return
+        # end if
+        path = parts.path.split("/")
+        if len(path) < 6 or not path[-1].lower().endswith((".md", ".mdx")):
+            return
+        # end if
+        label = " ".join("".join(self.text).split())
+        if path[3] == "edit" or (
+            path[3] == "blob" and re.fullmatch(r"Edit (?:this page )?on GitHub", label, re.IGNORECASE)
+        ):
+            path[3] = "blob"
+            self.blob_url = urllib.parse.urlunsplit(parts._replace(path="/".join(path), query="", fragment=""))
+        # end if
+    # end def
+# end class
+
+
 class RevisionParser(html.parser.HTMLParser):
     def __init__(self) -> None:
         super().__init__()

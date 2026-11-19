@@ -5,7 +5,7 @@ import urllib.parse
 from pathlib import Path
 
 from .archive import is_cloudflare_challenge, latest_snapshot_url
-from .html import final_output_path, html_to_markdown
+from .html import EditLinkParser, final_output_path, html_to_markdown
 from .http import fetch_url
 from .log import log
 from .models import DownloadError, DownloadPlan, DownloadResult, Fetch, Response
@@ -103,8 +103,33 @@ def markdown_plan_if_available(plan: DownloadPlan, output_root: Path, fetch: Fet
                 link_paths=plan.link_paths,
             )
         # end if
-    log(f"no markdown rewrite found for {plan.download_url}, converting HTML")
+    log(f"no direct markdown rewrite found for {plan.download_url}")
     return plan
+
+
+def edit_link_markdown_plan(plan: DownloadPlan, html: str, output_root: Path, fetch: Fetch) -> Response | None:
+    parser = EditLinkParser(plan.source_url)
+    parser.feed(html)
+    parser.close()
+    if parser.blob_url is None:
+        log(f"no GitHub Markdown edit link found for {plan.source_url}, converting HTML")
+        return None
+    # end if
+    try:
+        github = github_plan(parser.blob_url, output_root, fetch)
+        if github is not None:
+            response = fetch(github.download_url, "GET")
+            if response.status == 200 and looks_markdown(response):
+                log(f"rewrite: {plan.source_url} -> {github.download_url}")
+                return response
+            # end if
+            log(f"edit link source did not return Markdown (HTTP {response.status}): {github.download_url}")
+        # end if
+    except DownloadError as exc:
+        log(f"could not download edit link source: {exc}")
+    log(f"using HTML conversion for {plan.source_url}")
+    return None
+# end def
 
 
 def download(plan: DownloadPlan, fetch: Fetch = fetch_url) -> DownloadResult:
@@ -124,6 +149,15 @@ def download(plan: DownloadPlan, fetch: Fetch = fetch_url) -> DownloadResult:
     # end if
     if plan.convert_html:
         path = final_output_path(plan, response.text)
+        edit_source = edit_link_markdown_plan(plan, response.text, path.parent, fetch)
+        if edit_source is not None:
+            return DownloadResult(
+                path=path,
+                content=edit_source.content,
+                downloaded_url=edit_source.url,
+                archive_timestamp=archive_timestamp,
+            )
+        # end if
         return DownloadResult(
             path=path,
             content=html_to_markdown(response.text).encode("utf-8"),
