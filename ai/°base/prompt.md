@@ -8358,3 +8358,12 @@ Probably `projects` should stay a dictionary like in the local file?
 
 ❯ [/todo-loop](../skills/todo-loop/SKILL.md) plan for all three open todos.
 
+❯ Check @../DockerTgBot/sync_todo/ if we have updates for the sync_todos.py script, and "cherrry pick" them here with attribution.
+
+❯ Figure out the issue and fix it both here and there with the same commit.
+
+❯ Open a plan before implementing the fix
+
+❯ - `uv run --project sync_todo/code python -m pytest sync_todo/code/tests/test_mcp_mount.py` worked, 2 successful, 4 warnings.
+- you may continue investigation
+
