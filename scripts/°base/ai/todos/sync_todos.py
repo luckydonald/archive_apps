@@ -1096,6 +1096,79 @@ async def fetch_todos(url: str, token: str, calendar_id: int) -> list[dict[str, 
 # end def
 
 
+RETRY_DELAYS = (2.0, 5.0)
+
+
+class FetchError(RuntimeError):
+    """The todos could not be read from the MCP server. The message is a single line and holds neither the URL nor the token."""
+# end class
+
+
+def leaf_errors(error: BaseException) -> list[BaseException]:
+    """Flattens the (nested) exception groups the MCP client's task groups wrap everything in."""
+    if isinstance(error, BaseExceptionGroup):
+        return [leaf for sub in error.exceptions for leaf in leaf_errors(sub)]
+    # end if
+    return [error]
+# end def
+
+
+def is_transient(error: BaseException) -> bool:
+    """A handshake error, a dropped connection or a 5xx, as seen while the server restarts or deploys. Never an auth or other 4xx answer."""
+    import httpx2
+    from mcp.shared.exceptions import MCPError
+
+    if isinstance(error, httpx2.HTTPStatusError):
+        return error.response.status_code >= 500
+    # end if
+    return isinstance(error, (MCPError, httpx2.TransportError, OSError))
+# end def
+
+
+def describe_fetch_error(error: BaseException, url: str, token: str) -> str:
+    """One line naming each leaf error, with `code`, `message` and `data` of an `MCPError`, and with URL and token masked."""
+    import httpx2
+    from mcp.shared.exceptions import MCPError
+
+    parts: list[str] = []
+    for leaf in leaf_errors(error):
+        if isinstance(leaf, MCPError):
+            parts.append(f"MCPError code={leaf.code} message={leaf.message!r} data={leaf.data!r}")
+        elif isinstance(leaf, httpx2.HTTPStatusError):
+            parts.append(f"HTTP {leaf.response.status_code} from the MCP server")
+        else:
+            parts.append(f"{type(leaf).__name__}: {leaf}")
+        # end if
+    # end for
+    text = "; ".join(parts).replace("\n", " ")
+    for secret, mask in ((token, "<token>"), (url, "<url>")):
+        text = text.replace(secret, mask) if secret else text
+    # end for
+    return text if len(text) <= 500 else text[:499] + "…"
+# end def
+
+
+async def fetch_todos_with_retry(url: str, token: str, calendar_id: int, delays: tuple[float, ...] = RETRY_DELAYS) -> list[dict[str, Any]]:
+    """
+    `fetch_todos`, tried again after each of `delays` seconds while only transient errors happen, so a server that restarts or deploys does not fail the sync.
+    Raises a `FetchError` with a one line message in the end.
+    """
+    for attempt in range(len(delays) + 1):
+        try:
+            return await fetch_todos(url, token, calendar_id)
+        except Exception as e:
+            reason = describe_fetch_error(e, url, token)
+            if attempt >= len(delays) or not all(is_transient(leaf) for leaf in leaf_errors(e)):
+                raise FetchError(reason) from e
+            # end if
+            print(f"MCP server not ready ({reason}), retrying in {delays[attempt]:g}s", file=sys.stderr)
+            await asyncio.sleep(delays[attempt])
+        # end try
+    # end for
+    raise AssertionError("unreachable")
+# end def
+
+
 # --------------------------------------------------------------------------- main
 
 def write_atomic(path: Path, text: str) -> None:
@@ -1552,7 +1625,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{config.url_env} / {config.token_env} not set (looked in env and {config.env_file})", file=sys.stderr)
         return 2
     # end if
-    todos = asyncio.run(fetch_todos(url, token, config.calendar_id))
+    try:
+        todos = asyncio.run(fetch_todos_with_retry(url, token, config.calendar_id))
+    except FetchError as e:
+        print(f"Could not read the todos from the MCP server: {e}", file=sys.stderr)
+        return 2
+    # end try
     try:
         sync(config, todos, args.project, args.dry_run, not args.no_git, args.purge_missing, args.purge_complete, args.include_completed, args.reset_todo_file, args.add_files, not args.no_amend)
         selected = {p.name for p in select_projects(config, args.project)}

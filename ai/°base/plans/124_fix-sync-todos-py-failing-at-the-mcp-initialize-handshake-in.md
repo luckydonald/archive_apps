@@ -19,7 +19,15 @@ So one patch covers both repos, and no commit exists in DockerTgBot that base la
 - A direct `curl` probe with the real token was denied by the permission classifier, so the live response body is still unseen.
 - The script prints only the generic class message and hides `code`, `message` and `data` of the `MCPError` inside an `ExceptionGroup`, so the real cause is invisible.
 
-## Step 1: Diagnose (needs your OK for the live part)
+## Update after diagnosis
+
+- `test_mcp_mount.py` passes locally (2 passed), so the server code answers `initialize` correctly.
+- A `--dry-run --no-git` run of the very same script, through a throwaway wrapper, **connected and fetched todos fine** minutes after the two failures.
+  So the handshake failure was transient: the server answered `initialize` with an error while it was unavailable, most likely the deploy of today's changes (migration `0049`, new embed code) or a restart.
+- No server bug and no client bug was found, so the Step 2 branches reduce to one: the script gives no usable message and no retry for such a window.
+- Remaining fix, one commit in base and cherry-picked to DockerTgBot: Step 3 (readable one-line error) plus a short retry (3 tries, 2 s and 5 s backoff) of `fetch_todos` on `MCPError` and connection errors only, never on auth failures.
+
+## Step 1: Diagnose (done, see above)
 
 1. Run `uv run --project sync_todo/code python -m pytest tests/test_mcp_mount.py` in DockerTgBot, to confirm the current server code answers `initialize` with 200.
 2. Get the live answer without me handling the token.

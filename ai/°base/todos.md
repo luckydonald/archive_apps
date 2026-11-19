@@ -122,6 +122,8 @@ Open (new CalDAV todos created 2026-10-22):
 
 - [x] Add `squash unpushed` to ignored queries. — `todo:823f4001-2f8c-4a77-a2dd-f9d1d86a75d9` _(done)_
 - [ ] Once the `# end if` plugin is released, remove the `# end …` rule from the `python.md` code style. — `todo:7f19ba8b-35fc-477b-8f41-c5f458e697fc` _(prio 9₍₉₎ lowest)_
+  > - Update: It is now released: https://plugins.jetbrains.com/plugin/34698-explicit-block-endings
+  > - Simply drop everything `# end …` from the code style, this will allow the next agent to decide to keep a file’s format or create files without those.
 - [x] Improve the Markdown (`md.md`) code style to actually automatically be loaded if `/plan` is executed. — `todo:360971fb-7080-4607-94bf-d13a523c30e9` _(done)_
 - [x] Add the information about the currently selected file to the prompt log. — `todo:0b3a981b-3de7-4f89-aa1d-32471f137111` _(done)_
   > • File selected: [⧉ File `todo.md`](./todo.md)
@@ -322,7 +324,7 @@ Closed (no CalDAV equivalent):
   > - 6b7a9b60000c674ceecebae778b6b5dd6f454f33
   > - c2c1d8af9ed32e2c722e57ce20f1f9cc0cc3a97f
 - [x] Add `/commit-lplp-style` + `fold` / `unpushed` to prompt whitelist. — `todo:7a963fde-75b7-493a-8861-f6c44f291157` _(done)_
-- [x] Disallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759`
+- [x] Dissallow claude do run `find / …` — `todo:8c6ed776-eddd-4d7d-b9c0-c8afa5ec9759` _(done)_
 - [x] download_ref.py: Before falling back to the html converter, check if an `Edit this page on GitHub` link exists. — `todo:7f53d54c-e995-460d-9b24-a87bfdd2d930` _(done)_
 - [x] in the `/todo-loop` skill, mention to set the todo to in progress when being in a git worktree, so other agents can skip it. — `todo:1382d491-4c32-401f-8f81-d3d57fbaafc8` _(done)_
   > - While at it, make sure that that state is written to `todos.md` in the sync script.
