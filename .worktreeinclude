@@ -6,3 +6,4 @@ ai/settings/*.local.json
 .codex/hooks.local.json
 .codex/rules/generated.local.rules
 .github/hooks/generated.local.json
+**/ai/.env
