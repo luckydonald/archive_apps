@@ -33,11 +33,29 @@ archive_apps/
   io.py         tty_read, write_fail_menu, safe_write, safe_append, safe_mv, rm_retry
   zip_ops.py    checksums_from_zip, external_symlinks_from_zip, count_symlinks_from_zip
   app_ops.py    collect_app_manifest, copy_app_fresh, archive_and_store_zip, …
-  verify.py     verify_checksum_file_contents, run_verify_zip, run_verify_all
-  archive.py    plist_value (plistlib), run_archive
+  verify.py     verify_one_zip, classify_zip, checksum index (open_index_scratch, merge_checksum_index), symlink summaries
+  filters.py    `--app` filter matching for zips and live apps
+  steps.py      run_steps: the staged orchestrator, render_checklist, verify_changed
+  archive.py    plist_value (plistlib), run_archive (step 1), verify_created (step 2), finalize_archive
 main.py         thin shebang wrapper → archive_apps.__main__:main
 pyproject.toml  [project.scripts] archive-apps = "archive_apps.__main__:main"
 ```
+
+## Steps
+
+One run executes up to five steps in priority order, a plain-text checklist (`steps.render_checklist`) is printed at each transition.
+
+1. `archive`: the app loop described below. New zips are only recorded in `ctx.created`, not verified inline.
+2. `created`: `archive.verify_created` compares each new zip with the live app (mismatch: retry/delete/keep prompt, see `--on-verify-mismatch`).
+   Deferred prompts, zip colors and app marks (`archive.finalize_archive`) run right after this step, so later interrupts lose nothing.
+3. `changed`: zips whose hash differs from `_checksum_index_.txt`.
+4. `new`: zips not in the index yet.
+5. `rest`: every other zip, fully verified (slow, safe to interrupt).
+
+Steps 3 to 5 handle zips of installed apps first, then the others, each group in random order; zips verified earlier in the run are skipped.
+`--steps=LIST` / `--skip-steps=LIST` select steps, `--app=APP` limits everything to one app or zip, `--force-full` ignores the index.
+`--verify-zips`, `--verify-new`, `--verify-changed` and `--verify-zip=APP` are aliases that select only their steps.
+The failure and symlink summaries are printed in a `finally`, and the exit code is 1 when a verification failed.
 
 ## Architecture / logic flow
 

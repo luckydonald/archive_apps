@@ -5,12 +5,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+STEPS: tuple[str, ...] = ("archive", "created", "changed", "new", "rest")
+VERIFY_STEPS: tuple[str, ...] = ("changed", "new", "rest")
+
+
 @dataclass
 class Config:
     dest: Path
     local_cache: Path | None
-    verify_mode: str            # "none" | "zips" | "new" | "changed"
-    verify_zip_arg: str         # "" or the --verify-zip= value
+    steps: frozenset[str]       # the selected steps, see STEPS
+    app_filters: list[str]      # --app values; empty = everything
+    force_full: bool            # verify by extraction and ignore the checksum index
     verify_abort: bool
     keep_temp: bool
     external_symlink_policy: str   # "archive" | "skip" | "abort"
@@ -68,6 +73,9 @@ class RunContext:
     verify_failure_summary: list[tuple[str, str]] = field(default_factory=list)
     external_symlink_summary: list[str] = field(default_factory=list)
     index_scratch: Path | None = None  # this run's private checksum-index scratch file, if any
+    created: list[VerifyMismatchTask] = field(default_factory=list)  # zips created this run, verified by the `created` step
+    processed_zips: set[str] = field(default_factory=set)  # zips already verified this run, skipped by later steps
+    hash_cache: dict[Path, str] = field(default_factory=dict)  # sha256 of zips already hashed this run
     deferred_mismatches: list[MismatchTask] = field(default_factory=list)
     deferred_swaps: list[SwapTask] = field(default_factory=list)
     deferred_verify_mismatches: list[VerifyMismatchTask] = field(default_factory=list)
@@ -76,9 +84,41 @@ class RunContext:
     app_zips: dict[Path, tuple[str, str, str, str]] = field(default_factory=dict)  # app -> (name, mobile, version, zipname)
 
 
+def parse_step_list(value: str, flag: str) -> set[str]:
+    """Parse a comma separated list of step names (`all` = every step); exits on an unknown name."""
+    result: set[str] = set()
+    for part in value.split(","):
+        part = part.strip()
+        if part == "all":
+            result.update(STEPS)
+        elif part in STEPS:
+            result.add(part)
+        elif part:
+            print(f"Error: unknown step in {flag}: {part} (known: {', '.join(STEPS)}, all)", file=sys.stderr)
+            sys.exit(1)
+        # end if
+    # end for
+    return result
+# end def
+
+
+def resolve_steps(explicit: set[str] | None, aliases: set[str], skip: set[str]) -> frozenset[str]:
+    """Combine `--steps` and the `--verify-*` aliases (a union), default to every step, then subtract `--skip-steps`."""
+    if explicit is None and not aliases:
+        base = set(STEPS)
+    else:
+        base = (explicit or set()) | aliases
+    # end if
+    return frozenset(base - skip)
+# end def
+
+
 def parse_args(argv: list[str]) -> Config:
-    verify_mode = "none"
-    verify_zip_arg = ""
+    explicit_steps: set[str] | None = None
+    alias_steps: set[str] = set()
+    skip_steps: set[str] = set()
+    app_filters: list[str] = []
+    force_full = False
     dest_arg = ""
     local_cache_arg: str | None = None
     external_symlink_policy = "archive"
@@ -94,13 +134,22 @@ def parse_args(argv: list[str]) -> Config:
         arg = argv[i]
         if arg in ("-h", "--help"):
             print("Usage: archive-apps [options] [destination]")
-            print("  --verify-zip=APP  verify zip(s) for a specific app or exact zip file")
+            print("  --steps=LIST      comma separated steps to run, default: all")
+            print("                    archive  create missing zips and compare existing ones with the live apps")
+            print("                    created  verify the zips created in this run")
+            print("                    changed  verify zips whose hash differs from the checksum index")
+            print("                    new      verify zips not yet in the checksum index")
+            print("                    rest     verify all remaining zips (slow, safe to interrupt)")
+            print("  --skip-steps=LIST steps to leave out")
+            print("  --app=APP         only handle this app or zip file (repeatable)")
             print("                    APP forms: Xcode / Xcode.app / /Applications/Xcode.app")
             print("                              Xcode.app@15.4.zip / full/path/to/Foo.zip")
-            print("                    matches all version zips for that app; exits after verifying")
-            print("  --verify-zips     extract and verify all zips against their checksum files")
-            print("  --verify-new      verify only zips/checksums not yet in the checksum index")
-            print("  --verify-changed  verify zips whose index hash differs from current file")
+            print("  --force-full      verify by extraction and ignore the checksum index")
+            print("  --verify-zip=APP  alias: --app=APP --force-full --steps=changed,new,rest")
+            print("  --verify-zips     alias: --steps=changed,new,rest (every zip, no archiving)")
+            print("  --verify-new      alias: --steps=new")
+            print("  --verify-changed  alias: --steps=changed")
+            print("                    several aliases and --steps combine; without any, all steps run")
             print("  --verify-abort    stop immediately on the first verification failure")
             print("  --keep-temp       preserve temp workdirs and leftover .tmp files for reuse")
             print("  --local-cache[=path]")
@@ -128,13 +177,23 @@ def parse_args(argv: list[str]) -> Config:
             print("Error: --verify-zip requires a value: --verify-zip=APP", file=sys.stderr)
             sys.exit(1)
         elif arg.startswith("--verify-zip="):
-            verify_zip_arg = arg[len("--verify-zip="):]
+            app_filters.append(arg[len("--verify-zip="):])
+            force_full = True
+            alias_steps.update(VERIFY_STEPS)
         elif arg == "--verify-zips":
-            verify_mode = "zips"
+            alias_steps.update(VERIFY_STEPS)
         elif arg == "--verify-new":
-            verify_mode = "new"
+            alias_steps.add("new")
         elif arg == "--verify-changed":
-            verify_mode = "changed"
+            alias_steps.add("changed")
+        elif arg.startswith("--steps="):
+            explicit_steps = (explicit_steps or set()) | parse_step_list(arg[len("--steps="):], "--steps")
+        elif arg.startswith("--skip-steps="):
+            skip_steps |= parse_step_list(arg[len("--skip-steps="):], "--skip-steps")
+        elif arg.startswith("--app="):
+            app_filters.append(arg[len("--app="):])
+        elif arg == "--force-full":
+            force_full = True
         elif arg == "--verify-abort":
             verify_abort = True
         elif arg == "--no-mark-apps":
@@ -178,12 +237,11 @@ def parse_args(argv: list[str]) -> Config:
             dest_arg = arg
         i += 1
 
-    if verify_zip_arg and verify_mode != "none":
-        print(
-            "Error: --verify-zip cannot be combined with --verify-zips/--verify-new/--verify-changed",
-            file=sys.stderr,
-        )
+    steps = resolve_steps(explicit_steps, alias_steps, skip_steps)
+    if not steps:
+        print("Error: no steps selected", file=sys.stderr)
         sys.exit(1)
+    # end if
 
     if on_mismatch == "both" and mismatch_swap is None:
         print("Error: --on-mismatch=both requires --mismatch-swap=yes|no", file=sys.stderr)
@@ -204,8 +262,9 @@ def parse_args(argv: list[str]) -> Config:
     return Config(
         dest=dest,
         local_cache=local_cache,
-        verify_mode=verify_mode,
-        verify_zip_arg=verify_zip_arg,
+        steps=steps,
+        app_filters=app_filters,
+        force_full=force_full,
         verify_abort=verify_abort,
         keep_temp=keep_temp,
         external_symlink_policy=external_symlink_policy,

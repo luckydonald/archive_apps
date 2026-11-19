@@ -7,10 +7,10 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
-from .archive import run_archive
 from .cli import RunContext, parse_args
 from .io import rm_retry
-from .verify import merge_checksum_index, run_verify_all, run_verify_zip
+from .steps import run_steps
+from .verify import merge_checksum_index
 
 
 def _make_cleanup(ctx: RunContext) -> Callable[[], None]:
@@ -76,12 +76,7 @@ def main(argv: list[str] | None = None) -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, _on_signal)
 
-    if cfg.verify_zip_arg:
-        run_verify_zip(ctx)
-    elif cfg.verify_mode != "none":
-        run_verify_all(ctx)
-    else:
-        run_archive(ctx)
+    run_steps(ctx)
 
 
 if __name__ == "__main__":

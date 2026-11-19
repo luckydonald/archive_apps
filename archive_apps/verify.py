@@ -8,7 +8,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from .cli import RunContext
+from .cli import Config, RunContext
 from .io import safe_append, safe_mv, safe_write, tty_read
 from .lock import checksum_index_lock
 from .utils import FINDER_RED, fmt_size, set_finder_color, sha256_file
@@ -125,74 +125,6 @@ def unreadable_prompt(zip_path: Path, n: int) -> bool:
     return True
 
 
-def resolve_verify_zip_arg(arg: str, cfg) -> list[Path]:
-    if arg.endswith(".zip"):
-        p = Path(arg) if "/" in arg else cfg.dest / arg
-        if p.is_file():
-            return [p]
-        print(f"Error: zip not found: {p}", file=sys.stderr)
-        sys.exit(1)
-
-    if ".app/" in arg:
-        appname = Path(arg.split(".app/")[0] + ".app").name.removesuffix(".app")
-    elif arg.endswith(".app"):
-        appname = Path(arg).name.removesuffix(".app")
-    else:
-        appname = arg
-
-    found = sorted(cfg.dest.glob(f"{appname}.app@*.zip"))
-    if not found:
-        print(f"Error: no zips found for app '{appname}' in {cfg.dest}", file=sys.stderr)
-        sys.exit(1)
-    return found
-
-
-def run_verify_zip(ctx: RunContext) -> None:
-    zips = resolve_verify_zip_arg(ctx.cfg.verify_zip_arg, ctx.cfg)
-    total = len(zips)
-    width = len(str(total))
-    print(f"Verifying {total} zip(s) [--verify-zip]…")
-
-    for i, zip_path in enumerate(zips, 1):
-        idx = str(i).zfill(width)
-        zipname = zip_path.name
-        checksumfile = zip_path.with_name(zip_path.stem + ".checksums.txt")
-
-        print(f"VERIFY {idx}/{total}: {zipname}")
-        print(f"  zip: {fmt_size(zip_path)}")
-
-        manifest, czrc = checksums_from_zip(zip_path)
-        if czrc == 1:
-            print("  SKIPPED ⚠️: zip not readable or corrupt")
-            continue
-        elif czrc == 2:
-            n = manifest.count("(unreadable)  ")
-            if not unreadable_prompt(zip_path, n):
-                continue
-
-        zip_symlink_count = count_symlinks_from_zip(zip_path)
-        zip_external_symlinks = external_symlinks_from_zip(zip_path)
-        if not handle_external_symlinks(zipname, "verify zip", zip_symlink_count, zip_external_symlinks, ctx):
-            continue
-
-        if checksumfile.is_file():
-            actual_legacy, _ = checksums_from_zip(zip_path, "legacy")
-            if not verify_checksum_file_contents(checksumfile, manifest, actual_legacy, ctx):
-                record_verify_failure(zipname, "checksum file differs", ctx)
-                set_finder_color(zip_path, FINDER_RED)
-                if ctx.cfg.verify_abort:
-                    print("  ABORTED ❌: verification failed (--verify-abort)")
-                    print_verify_failure_summary(ctx)
-                    sys.exit(1)
-        else:
-            print("  CHECKSUM: no checksum file found")
-
-    print_verify_failure_summary(ctx)
-    if ctx.verify_failure_summary:
-        sys.exit(1)
-    sys.exit(0)
-
-
 def _parse_index_lines(text: str) -> dict[str, str]:
     """Parse '<hash>  <filename>' lines into {filename: hash}.
 
@@ -286,19 +218,31 @@ def merge_checksum_index(scratch_file: Path, ctx: RunContext) -> None:
         scratch_file.unlink(missing_ok=True)
 
 
-def run_verify_all(ctx: RunContext) -> None:
-    cfg = ctx.cfg
+def read_index(cfg: Config) -> dict[str, str]:
+    """The shared checksum index as `{file name: sha256}`; empty when there is none yet."""
     index_file = cfg.dest / "_checksum_index_.txt"
+    if not index_file.exists():
+        return {}
+    # end if
+    return _parse_index_lines(index_file.read_text())
+# end def
 
+
+def open_index_scratch(ctx: RunContext) -> Path:
+    """Merge scratch files left over by an interrupted run, then create this run's own scratch file in `ctx.index_scratch`."""
+    cfg = ctx.cfg
     for leftover in sorted(cfg.dest.glob("_checksum_index_.*.tmp")):
         try:
             content = leftover.read_text()
         except OSError:
             continue
+        # end try
         print(f"RECOVERY: found leftover scratch file {leftover.name} ({len(content.splitlines())} lines)")
         if content:
             print(content, end="" if content.endswith("\n") else "\n")
+        # end if
         merge_checksum_index(leftover, ctx)
+    # end for
 
     try:
         fd, scratch_path = tempfile.mkstemp(
@@ -311,112 +255,108 @@ def run_verify_all(ctx: RunContext) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
-    index_tmp = Path(scratch_path)
-    ctx.index_scratch = index_tmp
+    # end try
+    ctx.index_scratch = Path(scratch_path)
+    return ctx.index_scratch
+# end def
 
-    zips = sorted(cfg.dest.glob("*.zip"))
-    total = len(zips)
-    width = len(str(total))
-    print(f"Verifying {total} zip(s) [--verify-{cfg.verify_mode}]…")
 
-    for i, zip_path in enumerate(zips, 1):
-        idx = str(i).zfill(width)
-        zipname = zip_path.name
-        checksumfile = cfg.dest / (zip_path.stem + ".checksums.txt")
-        checksumname = checksumfile.name
-        print(f"VERIFY {idx}/{total}: {zipname}")
+def hash_cached(zip_path: Path, ctx: RunContext) -> str:
+    """sha256 of a zip, computed once per run."""
+    if zip_path not in ctx.hash_cache:
+        ctx.hash_cache[zip_path] = sha256_file(zip_path)
+    # end if
+    return ctx.hash_cache[zip_path]
+# end def
 
-        current_zip_hash = ""
-        zip_stored = ""
-        cs_stored = ""
-        if cfg.verify_mode != "zips" and index_file.exists():
-            for line in index_file.read_text().splitlines():
-                if line.endswith(f"  {zipname}"):
-                    zip_stored = line.split()[0]
-                if line.endswith(f"  {checksumname}"):
-                    cs_stored = line.split()[0]
 
-        if cfg.verify_mode == "new":
-            if zip_stored:
-                print(f"  zip: {zip_stored}")
-            else:
-                print("  CACHE-MISS 🔸: zip")
-            if cs_stored:
-                print(f"  app: {cs_stored}")
-            else:
-                print("  CACHE-MISS 🔸: app")
-            if zip_stored and cs_stored:
-                print("  INDEXED ✅: already verified")
-                safe_append(f"{zip_stored}  {zipname}", index_tmp, ctx)
-                safe_append(f"{cs_stored}  {checksumname}", index_tmp, ctx)
-                continue
+def checksum_file_of(zip_path: Path) -> Path:
+    return zip_path.with_name(zip_path.stem + ".checksums.txt")
+# end def
 
-        elif cfg.verify_mode == "changed":
-            current_zip_hash = sha256_file(zip_path)
-            if current_zip_hash:
-                print(f"  zip: {current_zip_hash}")
-            else:
-                print("  CACHE-MISS 🔸: zip")
-            if zip_stored and current_zip_hash != zip_stored:
-                print("  CHANGED 🔸: zip")
-            cs_current = ""
-            if checksumfile.exists():
-                cs_current = sha256_file(checksumfile)
-                if cs_current:
-                    print(f"  app: {cs_current}")
-                else:
-                    print("  CACHE-MISS 🔸: app")
-                if cs_stored and cs_current != cs_stored:
-                    print("  CHANGED 🔸: app")
-            else:
-                print("  CACHE-MISS 🔸: app")
-            if (current_zip_hash and current_zip_hash == zip_stored
-                    and cs_current and cs_current == cs_stored):
-                print("  UNCHANGED ✅: hash matches index")
-                safe_append(f"{current_zip_hash}  {zipname}", index_tmp, ctx)
-                safe_append(f"{cs_current}  {checksumname}", index_tmp, ctx)
-                continue
 
-        print(f"  zip: {fmt_size(zip_path)}")
+def record_in_index(zip_path: Path, ctx: RunContext) -> None:
+    """Append the current hashes of a verified zip and its checksums file to this run's index scratch file."""
+    if ctx.index_scratch is None:
+        return
+    # end if
+    safe_append(f"{hash_cached(zip_path, ctx)}  {zip_path.name}", ctx.index_scratch, ctx)
+    checksumfile = checksum_file_of(zip_path)
+    if checksumfile.exists():
+        safe_append(f"{sha256_file(checksumfile)}  {checksumfile.name}", ctx.index_scratch, ctx)
+    # end if
+# end def
 
-        manifest, czrc = checksums_from_zip(zip_path)
-        if czrc == 1:
-            print("  SKIPPED ⚠️: zip not readable or corrupt")
-            continue
-        elif czrc == 2:
-            n = manifest.count("(unreadable)  ")
-            if not unreadable_prompt(zip_path, n):
-                continue
 
-        zip_symlink_count = count_symlinks_from_zip(zip_path)
-        zip_external_symlinks = external_symlinks_from_zip(zip_path)
-        if not handle_external_symlinks(zipname, "verify zip", zip_symlink_count, zip_external_symlinks, ctx):
-            continue
+def is_indexed(zip_path: Path, index: dict[str, str]) -> bool:
+    """Whether the zip and its existing checksums file both have an entry in the index."""
+    checksumfile = checksum_file_of(zip_path)
+    return bool(index.get(zip_path.name) and index.get(checksumfile.name) and checksumfile.exists())
+# end def
 
-        if checksumfile.exists():
-            actual_legacy, _ = checksums_from_zip(zip_path, "legacy")
-            if not verify_checksum_file_contents(checksumfile, manifest, actual_legacy, ctx):
-                record_verify_failure(zipname, "checksum file differs", ctx)
-                set_finder_color(zip_path, FINDER_RED)
-                if cfg.verify_abort:
-                    print("  ABORTED ❌: verification failed (--verify-abort)")
-                    print_verify_failure_summary(ctx)
-                    sys.exit(1)
-                continue
-        else:
-            print("  CHECKSUM: missing, creating…")
-            tmp = Path(str(checksumfile) + ".tmp")
-            safe_write(manifest, tmp, ctx)
-            safe_mv(tmp, checksumfile, ctx)
-            print("  CHECKSUM: written")
 
-        if not current_zip_hash:
-            current_zip_hash = sha256_file(zip_path)
-        safe_append(f"{current_zip_hash}  {zipname}", index_tmp, ctx)
-        if checksumfile.exists():
-            cs_hash = sha256_file(checksumfile)
-            safe_append(f"{cs_hash}  {checksumname}", index_tmp, ctx)
+def classify_zip(zip_path: Path, index: dict[str, str], ctx: RunContext) -> str:
+    """`"new"` (not indexed), `"changed"` (a hash differs from the index) or `"unchanged"`. Hashes the files of indexed zips."""
+    if not is_indexed(zip_path, index):
+        return "new"
+    # end if
+    checksumfile = checksum_file_of(zip_path)
+    if hash_cached(zip_path, ctx) != index[zip_path.name]:
+        return "changed"
+    # end if
+    if sha256_file(checksumfile) != index[checksumfile.name]:
+        return "changed"
+    # end if
+    return "unchanged"
+# end def
 
-    merge_checksum_index(index_tmp, ctx)
-    ctx.index_scratch = None
-    print_verify_failure_summary(ctx)
+
+def verify_one_zip(zip_path: Path, ctx: RunContext) -> bool | None:
+    """Verify a zip against its checksums file (written first when missing) and record it in the index.
+
+    Returns `True` when verified, `False` on a mismatch (recorded, zip colored red) and `None` when it could not be checked.
+    """
+    cfg = ctx.cfg
+    zipname = zip_path.name
+    checksumfile = checksum_file_of(zip_path)
+    print(f"  zip: {fmt_size(zip_path)}")
+
+    manifest, czrc = checksums_from_zip(zip_path)
+    if czrc == 1:
+        print("  SKIPPED ⚠️: zip not readable or corrupt")
+        return None
+    elif czrc == 2:
+        n = manifest.count("(unreadable)  ")
+        if not unreadable_prompt(zip_path, n):
+            return None
+        # end if
+    # end if
+
+    zip_symlink_count = count_symlinks_from_zip(zip_path)
+    zip_external_symlinks = external_symlinks_from_zip(zip_path)
+    if not handle_external_symlinks(zipname, "verify zip", zip_symlink_count, zip_external_symlinks, ctx):
+        return None
+    # end if
+
+    if checksumfile.exists():
+        actual_legacy, _ = checksums_from_zip(zip_path, "legacy")
+        if not verify_checksum_file_contents(checksumfile, manifest, actual_legacy, ctx):
+            record_verify_failure(zipname, "checksum file differs", ctx)
+            set_finder_color(zip_path, FINDER_RED)
+            if cfg.verify_abort:
+                print("  ABORTED ❌: verification failed (--verify-abort)")
+                sys.exit(1)
+            # end if
+            return False
+        # end if
+    else:
+        print("  CHECKSUM: missing, creating…")
+        tmp = Path(str(checksumfile) + ".tmp")
+        safe_write(manifest, tmp, ctx)
+        safe_mv(tmp, checksumfile, ctx)
+        print("  CHECKSUM: written")
+    # end if
+
+    record_in_index(zip_path, ctx)
+    return True
+# end def

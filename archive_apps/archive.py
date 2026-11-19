@@ -18,9 +18,9 @@ from .utils import (
     FINDER_GRAY, FINDER_GREEN, FINDER_ORANGE, FINDER_RED, fmt_size, get_finder_comment, now_suffix,
     set_finder_color, set_finder_comment, sha256_text, tagged_names,
 )
+from .filters import app_matches
 from .verify import (
-    handle_external_symlinks, print_external_symlink_summary,
-    print_verify_failure_summary, record_verify_failure,
+    handle_external_symlinks, record_in_index, record_verify_failure,
     unreadable_prompt, verify_checksum_file_contents,
 )
 from .zip_ops import checksums_from_zip, count_symlinks_from_zip, external_symlinks_from_zip
@@ -235,12 +235,75 @@ def order_apps(apps: list[Path], dest: Path) -> list[Path]:
     return sorted(apps, key=rank)  # stable, so the shuffle stays the tie-break within a group
 
 
-def run_archive(ctx: RunContext) -> None:
-    cfg = ctx.cfg
-    apps = [
+def find_apps() -> list[Path]:
+    """The apps under `/Applications`, up to depth 2."""
+    return [
         p for p in Path("/Applications").glob("**/*.app")
         if p.is_dir() and len(p.relative_to("/Applications").parts) <= 2
     ]
+# end def
+
+
+def select_apps(apps: list[Path], filters: list[str]) -> list[Path]:
+    """Keep the apps selected by the `--app` filters (all of them without filters)."""
+    if not filters:
+        return apps
+    # end if
+    selected: list[Path] = []
+    for app in apps:
+        identity = app_identity(app)
+        name, mobile, version = identity if identity else (None, "", "")
+        zipname = f"{name}.app@{mobile}{version}.zip" if name else None
+        if app_matches(app, name, zipname, filters):
+            selected.append(app)
+        # end if
+    # end for
+    return selected
+# end def
+
+
+def verify_created(ctx: RunContext) -> tuple[int, int, int]:
+    """Verify the zips created in this run against the live apps. Returns `(verified, failed, skipped)`."""
+    cfg = ctx.cfg
+    total = len(ctx.created)
+    width = len(str(total))
+    verified = failed = skipped = 0
+    for i, task in enumerate(ctx.created, 1):
+        print(f"VERIFY CREATED {str(i).zfill(width)}/{total}: {task.zipname}")
+        dest_zip = cfg.dest / task.zipname
+        ctx.processed_zips.add(task.zipname)
+        zip_checksums, czrc = checksums_from_zip(dest_zip)
+        if czrc != 0:
+            print("  SKIPPED ⚠️: zip not readable for post-archive verification")
+            skipped += 1
+            continue
+        # end if
+        zip_symlink_count = count_symlinks_from_zip(dest_zip)
+        zip_external_symlinks = external_symlinks_from_zip(dest_zip)
+        if not handle_external_symlinks(task.zipname, "new zip", zip_symlink_count, zip_external_symlinks, ctx):
+            skipped += 1
+            continue
+        # end if
+        if zip_checksums == task.live_checksums:
+            print("  CREATED ✅: archived checksum matches app")
+            ctx.zip_colors[task.zipname] = FINDER_GREEN
+            delete_validated_workdir(task.zipstem, task.live_manifest_hash, ctx)
+            record_in_index(dest_zip, ctx)
+            verified += 1
+        else:
+            print("  MISMATCH ❌: archived checksum does not match original app")
+            ctx.zip_colors[task.zipname] = FINDER_RED
+            _resolve_verify_mismatch(task, ctx, MISMATCH_PROMPT_TIMEOUT_SECONDS)
+            failed += 1
+        # end if
+    # end for
+    return verified, failed, skipped
+# end def
+
+
+def run_archive(ctx: RunContext) -> None:
+    cfg = ctx.cfg
+    apps = select_apps(find_apps(), cfg.app_filters)
     apps = order_apps(apps, cfg.dest)
 
     total = len(apps)
@@ -357,29 +420,16 @@ def run_archive(ctx: RunContext) -> None:
         write_checksums(live_checksums, checksumname, ctx)
         print("  CHECKSUM: written for app")
 
-        print("  CHECKSUM: verifying zip...")
-        zip_checksums, czrc = checksums_from_zip(dest_zip)
-        if czrc == 0:
-            zip_symlink_count = count_symlinks_from_zip(dest_zip)
-            zip_external_symlinks = external_symlinks_from_zip(dest_zip)
-            if not handle_external_symlinks(zipname, "new zip", zip_symlink_count, zip_external_symlinks, ctx):
-                continue
-            if zip_checksums == live_checksums:
-                print("  CREATED ✅: archived checksum matches app")
-                ctx.zip_colors[zipname] = FINDER_GREEN
-                delete_validated_workdir(zipstem, live_manifest_hash, ctx)
-            else:
-                print("  MISMATCH ❌: archived checksum does not match original app")
-                ctx.zip_colors[zipname] = FINDER_RED
-                task = VerifyMismatchTask(
-                    label=f"{name} {version}", app=app, versioned=versioned,
-                    zipname=zipname, checksumname=checksumname, zipstem=zipstem,
-                    live_manifest_hash=live_manifest_hash, live_checksums=live_checksums,
-                )
-                _resolve_verify_mismatch(task, ctx, MISMATCH_PROMPT_TIMEOUT_SECONDS)
-        else:
-            print("  SKIPPED ⚠️: zip not readable for post-archive verification")
+        ctx.created.append(VerifyMismatchTask(
+            label=f"{name} {version}", app=app, versioned=versioned,
+            zipname=zipname, checksumname=checksumname, zipstem=zipstem,
+            live_manifest_hash=live_manifest_hash, live_checksums=live_checksums,
+        ))
+    # end for
 
+
+def finalize_archive(ctx: RunContext) -> None:
+    """Resolve the prompts deferred by timeouts, then apply the Finder colors and the app marks."""
     if ctx.deferred_mismatches or ctx.deferred_swaps or ctx.deferred_verify_mismatches:
         n = len(ctx.deferred_mismatches) + len(ctx.deferred_swaps) + len(ctx.deferred_verify_mismatches)
         print(f"\n{n} deferred prompt(s) from earlier timeouts — resolving now (will wait for input):")
@@ -399,7 +449,3 @@ def run_archive(ctx: RunContext) -> None:
 
     apply_zip_colors(ctx)
     apply_app_marks(ctx)
-    print_external_symlink_summary(ctx)
-    print_verify_failure_summary(ctx)
-    if ctx.verify_failure_summary:
-        sys.exit(1)

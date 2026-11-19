@@ -57,14 +57,18 @@ Skipped steps show `[-]`.
   - `--verify-changed` = `changed`
   - `--verify-new` = `new`
   - `--verify-zips` = `changed,new,rest`, so every zip is checked, and without archiving.
-  - `--verify-zip=APP` = `changed,new,rest` limited to the zips of that app or zip file (reuses `resolve_verify_zip_arg`), always fully verified and ignoring the index, as today.
+  - `--verify-zip=APP` = `--app=APP` plus `--force-full` plus steps `changed,new,rest`, so it behaves exactly as today.
+- `--app=APP` is a separate filter flag that works with any step selection, including a normal full run.
+  It limits every stage to the zips (and, in stage 1, the live apps) matching APP, in the same forms as today (`Xcode`, `Xcode.app`, `/Applications/Xcode.app`, `Xcode.app@15.4.zip`, a full zip path).
+  It reuses `resolve_verify_zip_arg` for matching and can be given several times.
+- `--force-full` verifies the selected zips by extraction and ignores the index, as `--verify-zip` does today.
 - Several aliases combine as a union of steps, and the old "cannot be combined" error goes away.
 - `--verify-abort` is unchanged.
 - Update `--help`.
 
 ## Code changes
 
-- `cli.py`: replace `verify_mode`/`verify_zip_arg` with `steps: frozenset[str]` and `verify_target: str`. Add `ctx.created`.
+- `cli.py`: replace `verify_mode`/`verify_zip_arg` with `steps: frozenset[str]` and `app_filters: list[str]` and `force_full: bool`. Add `ctx.created`.
 - `verify.py`:
   - Split `run_verify_all` into `open_index_scratch(ctx)` (leftover recovery and `mkstemp`), `classify_zips(zips, index, ...)` (pure: changed/new/rest, installed apps first) and `verify_one_zip(zip_path, ctx, index_tmp)`.
   - Delete `run_verify_zip` and the `sys.exit` calls at the end of the verify runs.
@@ -75,7 +79,8 @@ Skipped steps show `[-]`.
 
 ## Tests (`tests/`, run with `uv run --with pytest python -m pytest tests`)
 
-- Step parsing: defaults, `--skip-steps`, each alias, and alias unions.
+- Step parsing: defaults, `--skip-steps`, each alias, alias unions, and `--app`/`--force-full` (including `--verify-zip=APP` expanding to them).
+- App filter: matches the same forms as `resolve_verify_zip_arg`, and narrows both the app loop and the zip stages.
 - `classify_zips`: changed/new/rest split and installed-apps-first ordering, with a fake index.
 - `render_checklist` output.
 - Orchestrator: with the verify functions stubbed, stages run in order, skipped stages are not called, and a failure gives exit code 1 plus the summary.
