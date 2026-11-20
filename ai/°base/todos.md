@@ -121,7 +121,7 @@ To complete one: tick the box and call `mcp__sync_todo__complete_todo(calendar_i
 Open (new CalDAV todos created 2026-10-22):
 
 - [x] Add `squash unpushed` to ignored queries. — `todo:823f4001-2f8c-4a77-a2dd-f9d1d86a75d9` _(done)_
-- [ ] Once the `# end if` plugin is released, remove the `# end …` rule from the `python.md` code style. — `todo:7f19ba8b-35fc-477b-8f41-c5f458e697fc` _(prio 9₍₉₎ lowest)_
+- [x] Once the `# end if` plugin is released, remove the `# end …` rule from the `python.md` code style. — `todo:7f19ba8b-35fc-477b-8f41-c5f458e697fc` _(done; prio 9₍₉₎ lowest)_
   > - Update: It is now released: https://plugins.jetbrains.com/plugin/34698-explicit-block-endings
   > - Simply drop everything `# end …` from the code style, this will allow the next agent to decide to keep a file’s format or create files without those.
 - [x] Improve the Markdown (`md.md`) code style to actually automatically be loaded if `/plan` is executed. — `todo:360971fb-7080-4607-94bf-d13a523c30e9` _(done)_

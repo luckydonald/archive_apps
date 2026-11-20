@@ -1,0 +1,1 @@
+Background command "Run base tests and sync check" completed (exit code 1: No matches found)

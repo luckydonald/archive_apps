@@ -1,0 +1,1 @@
+Background command "Rerun base tests with log file" completed (exit code 0)
