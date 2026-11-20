@@ -240,6 +240,8 @@ This base tracks binary image files (`.png`, `.jpg`, `.jpeg`) with [Git LFS](htt
 
 After the base files are present in a repository, `scripts/°base/init/checkout.sh` also installs the local LFS hooks and disables GitHub LFS lock verification for discovered GitHub HTTPS remotes. This avoids push failures like `You must have push access to verify locks` in repos that use LFS files but do not use LFS locks.
 
+Every worktree and agent runs it at session start and they all share one hooks directory, so it takes a `mkdir` lock (`<git-common-dir>/checkout-hooks.lock`), installs a pre-commit hook type only when it is missing, patches the `PATH` line in once, and moves a `<hook>.legacy` that is itself a pre-commit script aside (`*.legacy.YYYY-MM-DD.bak`). Without that, two concurrent `pre-commit install` runs left a hook that failed every commit with `pre-commit's script is installed in migration mode`.
+
 ### Claude GitHub issue agent
 
 This base includes `.github/workflows/claude-issue-agent.yml`, which lets you ask Claude to work on a GitHub issue by mentioning `@claude` in the issue body or in a new issue comment.
