@@ -8385,3 +8385,5 @@ Probably `projects` should stay a dictionary like in the local file?
 > - [Answer (`78` chars, `78 B`)](output/agents/129.b7aq12s7w/result.md)
 > - [Raw log (`78` chars, `78 B`)](/private/tmp/claude-501/-Users-user-Documents-programming-Python-base/9dddd442-9518-46a3-b186-3a05cd5bc159/tasks/b7aq12s7w.output)
 
+❯ Add to the `/todo-loop` to mark the task as in progress  as point 5 in the setup (and give the commands ready so no more research has to be done).
+

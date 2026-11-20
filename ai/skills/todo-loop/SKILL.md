@@ -10,13 +10,15 @@ Does the **next open todo** of one project, then stops so the user can `/clear` 
 ## Setup
 
 1. Sync first: run `uv run scripts/°base/ai/todos/sync_todos.py` from the repo root, without `--purge-*`, so the todo files hold the current CalDAV state. It commits its own `[TODOs] synced todos …` commits.
-2. Work out the project (tag or name, from the user's message or a named todo file). If none is named, or the current project has no open todo, choose automatically: the current project first, then its subprojects and the other projects of `ai/settings/sync_todos.json` that have a `path` in the committed `ai/settings/sync_todos.repo.json` or the gitignored `ai/settings/sync_todos.local.json` (a project without any path is out of scope, never touch it), taking the first one that has an open `- [ ]` item; never stop to ask which project. When the project is not the one the session started in, the hooks still write the run's prompt and plan commits into the session project's `ai/`, which step 5 cleans up. Then work out its todo file, calendar id (default `7`), Bugsink ids and commit scope prefix. All come from the repo `CLAUDE.md` ("Todo-list identifiers", "Issue-tracker identifiers") and the project's own `CLAUDE.md`.
+2. Work out the project (tag or name, from the user's message or a named todo file). If none is named, or the current project has no open todo, choose automatically: the current project first, then its subprojects and the other projects of `ai/settings/sync_todos.json` that have a `path` in the committed `ai/settings/sync_todos.repo.json` or the gitignored `ai/settings/sync_todos.local.json` (a project without any path is out of scope, never touch it), taking the first one that has an open `- [ ]` item; never stop to ask which project. When the project is not the one the session started in, the hooks still write the run's prompt and plan commits into the session project's `ai/`, which the Rebase step of "The todo" cleans up. Then work out its todo file, calendar id (default `7`), Bugsink ids and commit scope prefix. All come from the repo `CLAUDE.md` ("Todo-list identifiers", "Issue-tracker identifiers") and the project's own `CLAUDE.md`.
 3. Load `/commit-with-lplp-style` and `/code-style`.
 4. Read the todo file and take the first open `- [ ]` item, unless another is clearly more urgent (crash, blocker). A subtask comes before its parent; skip items that say so. Tell the user which todo (uid, summary) you take, and why if it is not the first.
    Skip `- […]` items unless you are resuming the todo this worktree marked in progress.
-   Compare the two paths from `git rev-parse --path-format=absolute --git-dir --git-common-dir` in the session checkout.
-   If they differ, the session is in a linked worktree. Immediately call `update_todo` with the chosen `calendar_id`, `uid` and `changes: {"status": "IN-PROCESS"}`.
-   Run `uv run scripts/°base/ai/todos/sync_todos.py --project <project>` so the todo shows as `- […]` for other agents. Tell the user you marked it in progress.
+5. Mark the chosen todo in progress, only in a linked worktree (so parallel agents skip it). No research needed, run exactly this:
+   1. Check: `git rev-parse --path-format=absolute --git-dir --git-common-dir` in the session checkout prints two paths. If they are equal, this is the main checkout, skip the rest of this step.
+   2. If they differ, call the MCP tool `mcp__sync_todo__update_todo` with `{"calendar_id": <calendar id>, "uid": "<uid>", "changes": {"status": "IN-PROCESS"}}`.
+   3. Run `uv run scripts/°base/ai/todos/sync_todos.py --project <project>` from the repo root, so the todo shows as `- […]` for other agents.
+   4. Tell the user you marked it in progress.
 
 ## The todo
 
