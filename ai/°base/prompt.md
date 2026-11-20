@@ -8387,3 +8387,6 @@ Probably `projects` should stay a dictionary like in the local file?
 
 ❯ Add to the `/todo-loop` to mark the task as in progress  as point 5 in the setup (and give the commands ready so no more research has to be done).
 
+❯ Fix the _**4.** **Close**:_ step to contain the proper MCP call like in _Setup_'s **5.**
+> • [⧉ File `SKILL.md`: 1 line selected](../skills/todo-loop/SKILL.md#L26)
+
