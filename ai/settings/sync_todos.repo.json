@@ -1,5 +1,11 @@
 {
   "$schema": "./sync_todos-repo.schema.json",
   "projects": {
+    "archiveApps": {
+      "path": ".",
+      "tags": ["archiveApps"],
+      "todo_file": "ai/todos.md",
+      "commit_prefix": "[archive_apps] "
+    }
   }
 }

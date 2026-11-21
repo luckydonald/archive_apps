@@ -1417,3 +1417,5 @@ Tip: when you need the user to run a command, put it alone in a ```sh run block 
 
 ❯ Plan accepted, auto mode.
 
+❯ Fix `sync_todos.repo.json` to contain `"."`.
+
