@@ -1,5 +1,5 @@
 # AI/base content separated into the history branch.
-ai/**
+**/ai/**
 .claude/**
 .codex/**
 .agents/**
