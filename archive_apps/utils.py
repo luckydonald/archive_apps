@@ -31,16 +31,20 @@ def fmt_eta_target(now_ts: float, remaining: float) -> str:
     return time.strftime(fmt, time.localtime(target_ts)) + label
 
 
+def fmt_bytes(total: float) -> str:
+    for unit in ("B", "K", "M", "G", "T"):
+        if total < 1024 or unit == "T":
+            return f"{total:.1f}{unit}"
+        total /= 1024
+    return f"{total:.1f}T"
+
+
 def fmt_size(path: Path) -> str:
     if path.is_file():
         total: float = path.stat().st_size
     else:
         total = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
-    for unit in ("B", "K", "M", "G", "T"):
-        if total < 1024 or unit == "T":
-            return f"{total:.1f}{unit}"
-        total /= 1024
-    return "0B"
+    return fmt_bytes(total)
 
 
 def sha256_text(text: str) -> str:

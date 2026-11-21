@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import os
 import select
 import shutil
@@ -10,6 +11,7 @@ from pathlib import Path
 
 from .cli import RunContext
 from .progress import ProgressBar
+from .utils import fmt_bytes
 
 
 _beep_enabled = True
@@ -60,8 +62,52 @@ def tty_read_timeout(prompt: str, default: str, timeout: float) -> tuple[str, bo
         return default, False
 
 
+def is_no_space(exc: BaseException | None) -> bool:
+    """True for a "no space left on device" (or quota exceeded) OSError."""
+    return isinstance(exc, OSError) and exc.errno in (errno.ENOSPC, errno.EDQUOT)
+
+
+def free_space_text(path: Path) -> str:
+    """Free space of the filesystem holding `path` (or its nearest existing parent), e.g. "12.3M free"; never raises."""
+    try:
+        probe = path
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        return f"{fmt_bytes(shutil.disk_usage(probe).free)} free"
+    except Exception:
+        return "free space unknown"
+
+
+def describe_failure(exc: BaseException | None, target: Path) -> str | None:
+    """Human readable reason for a failed write, naming a full disk explicitly."""
+    if exc is None:
+        return None
+    if is_no_space(exc):
+        return f"NO SPACE LEFT on the device of {target.parent} ({free_space_text(target)}), free some space, then retry"
+    return f"{type(exc).__name__}: {exc}"
+
+
+def report_if_no_space(exc: BaseException | None, target: Path) -> None:
+    """Print the no-space message for `exc` (only if it is one); used where failures are otherwise handled generically."""
+    if is_no_space(exc):
+        print(f"  {describe_failure(exc, target)}", file=sys.stderr)
+
+
+def report_if_disk_full(target: Path, min_free: int = 10 * 1024 * 1024) -> None:
+    """After a failed subprocess (ditto, rsync) that gives no errno: name a (nearly) full disk as the likely cause."""
+    try:
+        probe = target
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        if shutil.disk_usage(probe).free < min_free:
+            print(f"  NO SPACE LEFT on the device of {target.parent} ({free_space_text(target)}), likely cause of the failure", file=sys.stderr)
+    except Exception:
+        pass
+
+
 def write_fail_menu(
     desc: str, content_or_src: str, orig_dst: Path, mode: str, ctx: RunContext,
+    reason: BaseException | None = None,
 ) -> Path | None:
     cur_dst = orig_dst
     has_alternate = False
@@ -69,6 +115,9 @@ def write_fail_menu(
 
     while True:
         print(f"  WRITE ERROR: {desc}", file=sys.stderr)
+        detail = describe_failure(reason, cur_dst)
+        if detail:
+            print(f"  ⚠️ {detail}", file=sys.stderr)
         print("  [a] retry (default)", file=sys.stderr)
         if has_alternate:
             print(f"  [a'] retry original path ({orig_dst})", file=sys.stderr)
@@ -124,6 +173,7 @@ def write_fail_menu(
 def safe_append(line: str, file: Path, ctx: RunContext) -> None:
     dst = file
     while True:
+        error: BaseException | None = None
         try:
             with open(dst, "a") as f:
                 f.write(line + "\n")
@@ -131,9 +181,9 @@ def safe_append(line: str, file: Path, ctx: RunContext) -> None:
             if last and last[-1] == line:
                 return
             print(f"  WARN: readback mismatch (append {dst})", file=sys.stderr)
-        except Exception:
-            pass
-        result = write_fail_menu(f"append to {file.name}", line, file, "append", ctx)
+        except Exception as e:
+            error = e
+        result = write_fail_menu(f"append to {file.name}", line, file, "append", ctx, error)
         if result is None:
             return
         dst = result
@@ -143,15 +193,18 @@ def safe_write(content: str, file: Path, ctx: RunContext) -> None:
     last_exp = (content + "\n").splitlines()[-1]
     dst = file
     while True:
+        error: BaseException | None = None
         try:
             dst.write_text(content + "\n")
             last_act = dst.read_text().splitlines()
             if last_act and last_act[-1] == last_exp:
                 return
             print(f"  WARN: readback mismatch (write {dst})", file=sys.stderr)
-        except Exception:
-            pass
-        result = write_fail_menu(f"write {file.name}", content, file, "write", ctx)
+        except Exception as e:
+            error = e
+            if is_no_space(e):
+                dst.unlink(missing_ok=True)  # drop the truncated file, so the retry starts clean
+        result = write_fail_menu(f"write {file.name}", content, file, "write", ctx, error)
         if result is None:
             return
         dst = result
@@ -164,6 +217,7 @@ def safe_mv(src: Path, dst: Path, ctx: RunContext) -> None:
         expected = 0
     target = dst
     while True:
+        error: BaseException | None = None
         try:
             shutil.move(str(src), str(target))
             try:
@@ -174,9 +228,9 @@ def safe_mv(src: Path, dst: Path, ctx: RunContext) -> None:
                 return  # file moved, can't verify size — accept
             print(f"  WARN: readback mismatch after mv to {target}", file=sys.stderr)
             return
-        except Exception:
-            pass
-        result = write_fail_menu(f"write {dst.name}", str(src), dst, "mv", ctx)
+        except Exception as e:
+            error = e
+        result = write_fail_menu(f"write {dst.name}", str(src), dst, "mv", ctx, error)
         if result is None:
             return
         target = result

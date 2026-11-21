@@ -74,6 +74,7 @@ The order comes from `archive.order_apps`: apps without a zip for their installe
 **Local cache**: with `--local-cache`, new zips are built on local disk and then sent to the destination by `app_ops.send_file`, which uses `rsync` when installed and falls back to a Python copy.
 
 **Atomic writes**: every output file is first written to a `.tmp` sibling and then `mv`'d into place. A `trap cleanup EXIT` removes any leftover `.tmp` files on exit.
+A failed write names its cause in the write-error menu; a full disk (`ENOSPC`/`EDQUOT`) is reported as `NO SPACE LEFT` with the free space (`io.describe_failure`), and failed `ditto`/`send_file` calls print the same hint when the disk is nearly full (`io.report_if_disk_full`).
 
 ## Prompts
 

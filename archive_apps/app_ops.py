@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 from .cli import Config, RunContext
-from .io import rm_retry, safe_mv, safe_write
+from .io import report_if_disk_full, report_if_no_space, rm_retry, safe_mv, safe_write
 from .progress import (
     ProgressBar, copy_with_progress,
     drain_ditto_stderr, drain_rsync_stderr, run_with_bar,
@@ -105,6 +105,14 @@ def count_live_symlinks(app: Path) -> int:
 
 
 def copy_app_fresh(app: Path, workapp: Path) -> None:
+    try:
+        copy_app_fresh_unchecked(app, workapp)
+    except Exception:
+        report_if_disk_full(workapp)
+        raise
+
+
+def copy_app_fresh_unchecked(app: Path, workapp: Path) -> None:
     total = count_files(app)
     if sys.stderr.isatty() and total > 0:
         bar = ProgressBar("COPY", total)
@@ -152,6 +160,17 @@ def ensure_archive_copy(app: Path, versioned: str, workdir: Path, ctx: RunContex
 
 
 def archive_app_to_zip(
+    app: Path, versioned: str, dest_zip: Path,
+    manifest_hash: str, archive_stem: str, ctx: RunContext,
+) -> None:
+    try:
+        archive_app_to_zip_unchecked(app, versioned, dest_zip, manifest_hash, archive_stem, ctx)
+    except Exception:
+        report_if_disk_full(dest_zip)
+        raise
+
+
+def archive_app_to_zip_unchecked(
     app: Path, versioned: str, dest_zip: Path,
     manifest_hash: str, archive_stem: str, ctx: RunContext,
 ) -> None:
@@ -297,10 +316,14 @@ def send_file(src: Path, dst: Path) -> None:
             return
         print("  SEND: rsync failed, falling back to a plain copy")
         dst.unlink(missing_ok=True)
-    if tty:
-        copy_with_progress(src, dst)
-    else:
-        shutil.copy2(str(src), str(dst))
+    try:
+        if tty:
+            copy_with_progress(src, dst)
+        else:
+            shutil.copy2(str(src), str(dst))
+    except OSError as e:
+        report_if_no_space(e, dst)
+        raise
 
 
 def archive_and_store_zip(
