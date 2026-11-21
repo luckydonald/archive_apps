@@ -136,8 +136,35 @@ def _offer_hash_mismatch_swap(
         print("  SWAP SKIPPED: layout left unchanged")
 
 
+def find_renamed_match(dest: Path, task: MismatchTask) -> str | None:
+    """Name of a timestamp-suffixed zip of the same app version in `dest` whose checksums equal the live app's, if any.
+
+    Such a zip is left by an earlier `[b]oth`; `~hash-mismatch~` zips hold the old content and never count.
+    """
+    prefix = f"{task.name}.app@{task.mobile}{task.version}~"
+    for checksum_path in sorted(dest.glob(f"{glob.escape(prefix)}*.checksums.txt")):
+        if "~hash-mismatch~" in checksum_path.name:
+            continue
+        zipname = checksum_path.name.removesuffix(".checksums.txt") + ".zip"
+        if not (dest / zipname).is_file():
+            continue
+        try:
+            existing = checksum_path.read_text().rstrip("\n")
+        except OSError:
+            continue
+        if existing == task.live_checksums.rstrip("\n"):
+            return zipname
+    return None
+
+
 def _resolve_mismatch(task: MismatchTask, ctx: RunContext, timeout: float | None) -> None:
     cfg = ctx.cfg
+    renamed = find_renamed_match(cfg.dest, task)
+    if renamed is not None:
+        print(f"  SKIPPED: live app already archived as {renamed}")
+        ctx.zip_colors[renamed] = FINDER_GREEN
+        ctx.seen_zipnames.add(renamed)
+        return
     if cfg.on_mismatch is not None:
         choice = {"overwrite": "o", "both": "b", "skip": "s"}[cfg.on_mismatch]
         timed_out = False

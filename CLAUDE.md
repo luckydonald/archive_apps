@@ -69,6 +69,7 @@ The order comes from `archive.order_apps`: apps without a zip for their installe
    - If the zip exists but the checksums file is missing → extract the zip to a temp dir, compute checksums for both the extracted copy and the live app, compare:
      - Equal → write the checksums file.
      - Mismatch → prompt interactively: **[o]verwrite** the zip (replace with current live app), **[b]oth** (keep existing zip + write new zip with a timestamp suffix), or **[s]kip**.
+       No prompt is shown when a timestamp-suffixed zip of that version (not `~hash-mismatch~`) already has checksums equal to the live app's (`archive.find_renamed_match`): it is reported as skipped and colored green.
 4. **Archive a new app** — copies the live `.app` into a temp dir (renamed to `{AppName} {version}.app`), zips it with `ditto -c -k --sequesterRsrc --keepParent`, then writes checksums.
 
 **Local cache**: with `--local-cache`, new zips are built on local disk and then sent to the destination by `app_ops.send_file`, which uses `rsync` when installed and falls back to a Python copy.

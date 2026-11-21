@@ -1413,6 +1413,7 @@ The user ran this themselves with /sh in Paseo, in /Users/user/.paseo/worktrees/
 Tip: when you need the user to run a command, put it alone in a ```sh run block and Paseo shows them a Run button.
 
 ❯ [/todo-loop](./skills/todo-loop/SKILL.md) e5111b29-8a0a-4d66-8d3f-91330a088abc
+❯ [/todo-loop](./skills/todo-loop/SKILL.md) 9d65516d-d00e-47a5-ba2b-bfdf64ed2c32
 
 ❯ Plan accepted, auto mode.
 
