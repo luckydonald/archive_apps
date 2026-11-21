@@ -80,10 +80,9 @@ def _strip_copilot_plan_prompt(prompt: str) -> str:
 # and the most common "please commit now" reminders.
 # Claude uses /skill-name, Codex $skill-name.
 
-COMMIT_SKILLS = {
-    "/commit-with-lplp-style",
-    "$commit-with-lplp-style",
-}
+SKILL_PREFIXES = set('$/')
+COMMIT_SKILL = 'commit-with-lplp-style'
+COMMIT_SKILLS = combine(SKILL_PREFIXES, COMMIT_SKILL, join='')
 
 SQUASH_INSTRUCTIONS = {
     'commit',
@@ -94,9 +93,10 @@ SQUASH_INSTRUCTIONS = {
 
 SKIP_PROMPTS = {
     # skills
-    "/todo-loop", "$todo-loop",
     *COMMIT_SKILLS,
-    "/commit-lplp-style", "$commit-lplp-style",  # old names
+    *combine(SKILL_PREFIXES, 'todo-loop', join=''),
+    *combine(SKILL_PREFIXES, 'code-style', join=''),
+    *combine(SKILL_PREFIXES, 'commit-lplp-style', join=''),  # old names
     # common textual phrases for that skill.
     *either_order(
         {
@@ -116,7 +116,10 @@ SKIP_PROMPTS = {
                     'ai', '`ai:`', '`ai: `',
                     'todo', 'todos', '`[TODO]`', '`[TODOs]',
                     'unpushed',
-                    *combine({'', ' with'}, {'lplp style', '/commit-with-lplp-style'})
+                    *combine(
+                        combine({'', 'it'}, {'', 'with'}),
+                        {'lplp style', '/commit-with-lplp-style'}
+                    )
                 }
             ),
         },
@@ -141,7 +144,8 @@ SKIP_PROMPT_COMMANDS = {
 }
 
 
-# The skip check is case insensitive, so the lists above are written in lowercase.
+# The skip check is case-insensitive, so the lists above are written in lowercase.
+# Using `str.casefold()` instead of `str.lower()` so `'Ä ä ẞ ß'` -> `'ae ae ss ss'` (instead of 'ä ä ß ß') for more robust matching.
 _SKIP_PROMPTS_FOLDED = {prompt.casefold() for prompt in SKIP_PROMPTS}
 _SKIP_PROMPT_COMMANDS_FOLDED = {command.casefold() for command in SKIP_PROMPT_COMMANDS}
 
