@@ -18,8 +18,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Callable, NamedTuple
+from typing import Callable, NamedTuple, Literal
 
 # Sibling-module import (this package can't be imported as a real package
 # because parent dirs contain non-ASCII / hyphenated names).
@@ -39,6 +40,40 @@ _commit_message = _commit_style.commit_message
 _is_inside_base_repo = _commit_style._is_inside_base_repo
 _read_by_issue = _commit_style._read_by_issue
 _ai_root = _commit_style._ai_root
+
+
+def combine(
+    a: str | Iterable[str],
+    b: str | Iterable[str],
+    *,
+    join: Literal['', ' '] | str = ' ',
+) -> set[str]:
+    if isinstance(a, str) and isinstance(b, str):
+        # depending on the other being empty: `a + join + b` OR `a` / `b`
+        return {a + join + b if a and b else a or b}
+    if isinstance(a, Iterable):
+        return {
+            *(combine(_a, b, join=join) for _a in a)
+        }
+    # second if -> so we know isinstance(a, str)
+    assert isinstance(a, str), repr(a)
+    # because also first if -> we know isinstance(b, Iterable) because they can't both be str
+    assert isinstance(b, Iterable), repr(b)
+    return {
+        *(combine(a, _b, join=join) for _b in b)
+    }
+
+def either_order(
+    a: str | Iterable[str],
+    b: str | Iterable[str],
+    *,
+    join: Literal['', ' '] | str = ' ',
+) -> set[str]:
+    return {
+        *(combine(a, b, join=join)),
+        *(combine(b, a, join=join)),
+    }
+
 
 
 def read_payload() -> dict:

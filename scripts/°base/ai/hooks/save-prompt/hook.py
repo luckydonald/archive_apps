@@ -35,6 +35,8 @@ from _lib import (
     resolve_log_path,
     slugify,
     stage_and_commit,
+    combine,
+    either_order,
 )
 
 PREFIXES = {"claude": "❯", "codex": "›", "copilot": "◆"}
@@ -77,30 +79,52 @@ def _strip_copilot_plan_prompt(prompt: str) -> str:
 # Single-command prompts we never want to log: internal tooling invocations
 # and the most common "please commit now" reminders.
 # Claude uses /skill-name, Codex $skill-name.
-SKIP_PROMPTS = {
-    # skills
+
+COMMIT_SKILLS = {
     "/commit-with-lplp-style",
     "$commit-with-lplp-style",
-    "/commit-lplp-style",
-    "$commit-lplp-style",
+}
+
+SQUASH_INSTRUCTIONS = {
+    'commit',
+    'squash', 'rebase', 'fold',
+    'push',
+    *COMMIT_SKILLS,
+}
+
+SKIP_PROMPTS = {
+    # skills
+    "/todo-loop", "$todo-loop",
+    *COMMIT_SKILLS,
+    "/commit-lplp-style", "$commit-lplp-style",  # old names
     # common textual phrases for that skill.
-    "commit", "yes commit",
-    "commit please", "commit pls", "commit plz",
-    "please commit", "pls commit", "plz commit",
-    "commit now", "now commit",
-    "keep committing", "always commit",
-    "push", "push it",
-    # squashing/cleanup
-    "squash", "squash it", "squash it with lplp style",
-    "squash ai", "squash `ai:`", "squash `ai: `",
-    "squash unpushed",
-    "fold", "fold it", "unpushed", "fold unpushed", "clean unpushed",
-    "rebase", "rebase it", "rebase it with lplp style",
+    *either_order(
+        {
+            'yes', 'yes,', 'always',
+            'please', 'pls', 'plz',
+            'now',
+            '',
+        },
+        {
+            "keep committing",
+            # squashing/cleanup
+            *combine(
+                SQUASH_INSTRUCTIONS,
+                {
+                    '',
+                    'it',
+                    'ai', '`ai:`', '`ai: `',
+                    'todo', 'todos', '`[TODO]`', '`[TODOs]',
+                    'unpushed',
+                    *combine({'', ' with'}, {'lplp style', '/commit-with-lplp-style'})
+                }
+            ),
+        },
+    ),
     # bumping the AI to continue
     "continue", "go on", "bump",
     # loop
-    "continue loop", "resume loop",
-    "/todo-loop", "$todo-loop",
+    *combine({'continue', 'resume'}, 'loop'),
     # confirmations
     "yes", "ok", "okay",
     # fix it
@@ -109,6 +133,7 @@ SKIP_PROMPTS = {
     "/rename",
     "/compact",
 }
+
 # Commands skipped with any arguments, e.g. `/code-style .md .py` or `/code-style md`.
 SKIP_PROMPT_COMMANDS = {
     "/code-style",
