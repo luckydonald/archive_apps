@@ -8394,3 +8394,5 @@ Probably `projects` should stay a dictionary like in the local file?
 
 › *the `.worktreeinclude` file.
 
+› $todo-loop `todo:d5dd94eb-49ac-4a74-bf4d-39114bf055e7`
+

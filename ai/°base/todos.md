@@ -328,3 +328,4 @@ Closed (no CalDAV equivalent):
 - [x] download_ref.py: Before falling back to the html converter, check if an `Edit this page on GitHub` link exists. — `todo:7f53d54c-e995-460d-9b24-a87bfdd2d930` _(done)_
 - [x] in the `/todo-loop` skill, mention to set the todo to in progress when being in a git worktree, so other agents can skip it. — `todo:1382d491-4c32-401f-8f81-d3d57fbaafc8` _(done)_
   > - While at it, make sure that that state is written to `todos.md` in the sync script.
+- […] When calculating the number for the new plan, take into account all (other) worktrees. — `todo:d5dd94eb-49ac-4a74-bf4d-39114bf055e7` _(in process)_
