@@ -17,12 +17,15 @@ Session tracking (keyed by session_id in a temp-dir state file):
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -57,7 +60,18 @@ def _load_state() -> dict:
 
 
 def _save_state(state: dict) -> None:
-    _STATE_FILE.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    temporary = _STATE_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(_STATE_FILE)
+
+
+def update_session_state(session_id: str, changes: dict) -> None:
+    """Merge into the latest state so parallel saves preserve each session."""
+    with _STATE_FILE.with_suffix(".lock").open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        state = _load_state()
+        state.setdefault(session_id, {}).update(changes)
+        _save_state(state)
 
 
 # ---------------------------------------------------------------------------
@@ -510,13 +524,29 @@ def _apply_todos_section(plan_text: str, todos_md: str) -> str:
 
 # ---------------------------------------------------------------------------
 
-def _next_prefix(plans_dir: Path) -> str:
+def next_prefix(plans_dir: Path, git_root: Path) -> str:
+    relative_dir = plans_dir.relative_to(git_root)
+    entries = subprocess.check_output(["git", "worktree", "list", "--porcelain", "-z"], cwd=git_root)
     highest = 0
-    for entry in plans_dir.glob("[0-9]*_*.md"):
-        m = re.match(r"^(\d+)_", entry.name)
-        if m:
-            highest = max(highest, int(m.group(1)))
+    for record in entries.split(b"\0\0"):
+        entry, *attributes = record.split(b"\0")
+        if not entry.startswith(b"worktree ") or b"bare" in attributes:
+            continue
+        directory = Path(os.fsdecode(entry.removeprefix(b"worktree "))) / relative_dir
+        for plan in directory.glob("[0-9]*_*.md"):
+            match = re.match(r"^(\d+)_", plan.name)
+            if match and plan.is_file():
+                highest = max(highest, int(match.group(1)))
     return f"{highest + 1:03d}"
+
+
+@contextmanager
+def plan_number_lock(git_root: Path) -> Iterator[None]:
+    common_dir = subprocess.check_output(["git", "rev-parse", "--git-common-dir"], cwd=git_root)
+    lock_path = git_root / os.fsdecode(common_dir.removesuffix(b"\n")) / "save-plan-number.lock"
+    with lock_path.open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +647,7 @@ def _handle_task_tool_capture(
             if tool_input.get("status"):
                 entry["status"] = tool_input["status"]
 
-    _save_state(state)
+    update_session_state(session_id, {"tasks": tasks})
     return _apply_todos_and_commit(session_id, list(tasks.values()))
 
 
@@ -674,6 +704,7 @@ def main() -> int:
     sentinel = resolve_log_path("ai/plans/.dir", "ai/°base/plans/.dir")
     plans_dir = sentinel.parent
     plans_dir.mkdir(parents=True, exist_ok=True)
+    git_root = Path.cwd()
 
     state = _load_state()
     session = state.get(session_id) if session_id else None
@@ -692,6 +723,7 @@ def main() -> int:
         session = None
 
     new_slug = slugify(plan, fallback="plan")
+    body = plan if plan.endswith("\n") else plan + "\n"
 
     if session:
         prefix = session["prefix"]
@@ -700,56 +732,41 @@ def main() -> int:
 
         # Skip identical content.
         if old_path.is_file() and old_path.read_text(encoding="utf-8").strip() == plan:
-            if tool_name in ("ExitPlanMode", "exit_plan_mode") and session_id and session_id in state:
-                state[session_id]["done"] = True
-                _save_state(state)
+            if tool_name in ("ExitPlanMode", "exit_plan_mode") and session_id:
+                update_session_state(session_id, {"done": True})
             return 0
 
-        new_relpath = str((plans_dir / f"{prefix}_{new_slug}.md").relative_to(Path.cwd()))
         new_path = plans_dir / f"{prefix}_{new_slug}.md"
-        body = plan if plan.endswith("\n") else plan + "\n"
-
+        new_relpath = str(new_path.relative_to(git_root))
         if old_relpath != new_relpath:
-            # Slug changed → rename: remove old, write new, commit both paths.
-            _git_rm(old_relpath)
-            # `git rm --force` also removes `plans_dir` itself if `old_relpath`
-            # was its only remaining file -- recreate it before writing.
-            plans_dir.mkdir(parents=True, exist_ok=True)
-            new_path.write_text(body, encoding="utf-8")
+            with plan_number_lock(git_root):
+                new_path.write_text(body, encoding="utf-8")
+                _git_rm(old_relpath)
             _commit([old_relpath, new_relpath], f"ai: save plan {prefix}_{new_slug}")
         else:
-            # Same filename, updated content.
             new_path.write_text(body, encoding="utf-8")
             _commit([new_relpath], f"ai: save plan {prefix}_{new_slug}")
 
-        session["relpath"] = new_relpath
-        _save_state(state)
+        update_session_state(session_id, {"relpath": new_relpath})
 
     else:
         # New session: allocate NNN and create the file.
-        prefix = _next_prefix(plans_dir)
-        out_path = plans_dir / f"{prefix}_{new_slug}.md"
-        relpath = str(out_path.relative_to(Path.cwd()))
-        body = plan if plan.endswith("\n") else plan + "\n"
-        out_path.write_text(body, encoding="utf-8")
+        with plan_number_lock(git_root):
+            prefix = next_prefix(plans_dir, git_root)
+            out_path = plans_dir / f"{prefix}_{new_slug}.md"
+            out_path.write_text(body, encoding="utf-8")
+        relpath = str(out_path.relative_to(git_root))
         _commit([relpath], f"ai: save plan {prefix}_{new_slug}")
 
         if session_id:
-            # Capture the harness plan filename as metadata. `.update()`
-            # (not a plain assignment) preserves a `tasks` map that
-            # TaskCreate/TaskUpdate may have already started accumulating
-            # for this session_id before any plan was saved.
+            # Capture the harness plan filename as metadata alongside any existing tasks.
             source = Path(tool_input.get("file_path") or tool_input.get("path") or "").name
-            state.setdefault(session_id, {}).update(
-                {"prefix": prefix, "relpath": relpath, "source": source}
-            )
-            _save_state(state)
+            update_session_state(session_id, {"prefix": prefix, "relpath": relpath, "source": source, "done": False})
 
     # After ExitPlanMode fires, mark this plan session done so that a subsequent
     # Write (new /plan command in the same Claude session) allocates a fresh prefix.
-    if tool_name in ("ExitPlanMode", "exit_plan_mode") and session_id and session_id in state:
-        state[session_id]["done"] = True
-        _save_state(state)
+    if tool_name in ("ExitPlanMode", "exit_plan_mode") and session_id:
+        update_session_state(session_id, {"done": True})
 
     return 0
 
