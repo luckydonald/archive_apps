@@ -71,3 +71,6 @@ args = ["-y", "envmcp", "--env-file", "ai/.env", "npx", "-y", "mcp-remote", "\"$
 
 [plugins."skill-creator@claude-plugins-official"]
 enabled = true
+
+[plugins."codex-dispatch@anthropic-plugin-directory"]
+enabled = true

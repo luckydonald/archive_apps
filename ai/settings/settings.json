@@ -407,6 +407,9 @@
     },
     "skill-creator@claude-plugins-official": {
       "enabled": true
+    },
+    "codex-dispatch@anthropic-plugin-directory": {
+      "enabled": true
     }
   },
   "mcp": {

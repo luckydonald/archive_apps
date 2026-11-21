@@ -395,7 +395,8 @@
   },
   "enabledPlugins": {
     "openai-developers@openai-developers": true,
-    "skill-creator@claude-plugins-official": true
+    "skill-creator@claude-plugins-official": true,
+    "codex-dispatch@anthropic-plugin-directory": true
   },
   "enabledMcpjsonServers": [
     "bugsink",
