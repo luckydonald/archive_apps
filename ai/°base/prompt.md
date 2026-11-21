@@ -8396,3 +8396,10 @@ Probably `projects` should stay a dictionary like in the local file?
 
 › $todo-loop `todo:d5dd94eb-49ac-4a74-bf4d-39114bf055e7`
 
+› Improve the todo sync script to have the commit message include the "`todo:{uuid}` of each todo after the title.
+```diff
+  [TODOs] synced todos for base.
+- - added: When calculating the number for the new plan, take into account all (other) worktrees.
++ - added: When calculating the number for the new plan, take into account all (other) worktrees. — `todo:d5dd94eb-49ac-4a74-bf4d-39114bf055e7`
+```
+

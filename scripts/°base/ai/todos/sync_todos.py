@@ -1235,38 +1235,40 @@ def describe_changes(old: str, new: str) -> list[str]:
     lines: list[str] = []
     for uid, now in after.items():
         was = before.get(uid)
+        reference = f" — `todo:{uid}`"
+        title = f"{now['shown']}{reference}"
         if was is None:
-            lines.append(f"added: {now['shown']}" + (" (cancelled)" if now["box"] == "-" else ""))
+            lines.append(f"added: {title}" + (" (cancelled)" if now["box"] == "-" else ""))
             continue
         # end if
         if was["box"] != now["box"]:
             if now["box"] == "x":
-                lines.append(f"ticked: {now['shown']}")
+                lines.append(f"ticked: {title}")
             elif now["box"] == "-":
-                lines.append(f"cancelled: {now['shown']}")
+                lines.append(f"cancelled: {title}")
             elif was["box"] == "x":
-                lines.append(f"unticked: {now['shown']}")
+                lines.append(f"unticked: {title}")
             elif was["box"] == "-" and now["box"] == " ":
-                lines.append(f"reopened: {now['shown']}")
+                lines.append(f"reopened: {title}")
             else:
-                lines.append(f"checkbox [{was['box']}] -> [{now['box']}]: {now['shown']}")
+                lines.append(f"checkbox [{was['box']}] -> [{now['box']}]: {title}")
             # end if
         elif was["state"] != now["state"]:
-            lines.append(f"state: {now['shown']} ({was['state'] or 'none'} -> {now['state'] or 'none'})")
+            lines.append(f"state: {title} ({was['state'] or 'none'} -> {now['state'] or 'none'})")
         # end if
         if was["prio"] != now["prio"]:
-            lines.append(f"priority: {now['shown']} ({was['prio'] or 'none'} -> {now['prio'] or 'none'})")
+            lines.append(f"priority: {title} ({was['prio'] or 'none'} -> {now['prio'] or 'none'})")
         # end if
         if was["summary"] != now["summary"]:
-            lines.append(f"renamed: {struck(was['summary'], was['box'])} -> {struck(now['summary'], now['box'])}")
+            lines.append(f"renamed: {struck(was['summary'], was['box'])} -> {struck(now['summary'], now['box'])}{reference}")
         # end if
         if was["rows"] != now["rows"]:
-            lines.append(f"description changed: {now['shown']}")
+            lines.append(f"description changed: {title}")
         # end if
     # end for
     for uid, was in before.items():
         if uid not in after:
-            lines.append(f"removed: {was['shown']}")
+            lines.append(f"removed: {was['shown']} — `todo:{uid}`")
         # end if
     # end for
     return lines

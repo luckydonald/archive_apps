@@ -129,9 +129,9 @@ def test_merge_refreshes_priority_and_keeps_notes():
 def test_describe_changes_reports_a_priority_change():
     old = "- [ ] it — `todo:a` _(prio 9₍₉₎ lowest)_\n"
     new = "- [ ] it — `todo:a` _(prio 1₍₉₎ highest)_\n"
-    assert st.describe_changes(old, new) == ["priority: it (prio 9₍₉₎ lowest -> prio 1₍₉₎ highest)"]
+    assert st.describe_changes(old, new) == ["priority: it — `todo:a` (prio 9₍₉₎ lowest -> prio 1₍₉₎ highest)"]
     done = "- [x] it — `todo:a` _(done; prio 1₍₉₎ highest)_\n"
-    assert st.describe_changes(new, done) == ["ticked: it"]
+    assert st.describe_changes(new, done) == ["ticked: it — `todo:a`"]
 # end def
 
 
@@ -710,18 +710,18 @@ def test_describe_changes_names_what_happened_to_the_todos():
         "- [-] Born cancelled — `todo:k` _(cancelled)_\n"
     )
     assert st.describe_changes(old, new) == [
-        "description changed: Fix tagging",
-        "ticked: Fix tagging / child one",
-        "added: Fix tagging / child two",
-        "unticked: Done one",
-        "renamed: Old title -> New title",
-        "state: Working (none -> in process, 40%)",
-        "added: Brand new",
-        "cancelled: ~~Dropped~~",
-        "reopened: Shelved",
-        "renamed: ~~Old shelf~~ -> ~~New shelf~~",
-        "added: ~~Born cancelled~~ (cancelled)",
-        "removed: Going",
+        "description changed: Fix tagging — `todo:a`",
+        "ticked: Fix tagging / child one — `todo:a1`",
+        "added: Fix tagging / child two — `todo:a2`",
+        "unticked: Done one — `todo:b`",
+        "renamed: Old title -> New title — `todo:c`",
+        "state: Working — `todo:e` (none -> in process, 40%)",
+        "added: Brand new — `todo:g`",
+        "cancelled: ~~Dropped~~ — `todo:h`",
+        "reopened: Shelved — `todo:i`",
+        "renamed: ~~Old shelf~~ -> ~~New shelf~~ — `todo:j`",
+        "added: ~~Born cancelled~~ — `todo:k` (cancelled)",
+        "removed: Going — `todo:d`",
     ]
     assert st.describe_changes(old, old) == []
     assert st.describe_changes("# Todos\n", "# Todos\nsome note\n") == []  # (hand-written lines are not todos)
@@ -731,11 +731,16 @@ def test_describe_changes_names_what_happened_to_the_todos():
 def test_the_commit_body_lists_what_changed_and_the_subject_stays(tmp_path):
     r, run = _repo(tmp_path, "r")
     cfg = st.Config(projects=[st.Project(name="A", tags=["a"], path=str(r))])
-    st.sync(cfg, [todo("1", "#a one"), todo("2", "#a two", parent_uid="1")], None, False)
+    parent_uid = "d5dd94eb-49ac-4a74-bf4d-39114bf055e7"
+    st.sync(cfg, [todo(parent_uid, "#a one"), todo("2", "#a two", parent_uid=parent_uid)], None, False)
     assert run("log", "-1", "--format=%s").strip() == "[TODOs] synced todos for A."
-    assert run("log", "-1", "--format=%b").strip().split("\n") == ["- added: one", "- added: one / two"]
-    st.sync(cfg, [todo("1", "#a one", status="COMPLETED"), todo("2", "#a two renamed", parent_uid="1")], None, False, amend=False)
-    assert run("log", "-1", "--format=%b").strip().split("\n") == ["- ticked: one", "- renamed: two -> two renamed"]
+    assert run("log", "-1", "--format=%b").strip().split("\n") == [
+        f"- added: one — `todo:{parent_uid}`", "- added: one / two — `todo:2`",
+    ]
+    st.sync(cfg, [todo(parent_uid, "#a one", status="COMPLETED"), todo("2", "#a two renamed", parent_uid=parent_uid)], None, False, amend=False)
+    assert run("log", "-1", "--format=%b").strip().split("\n") == [
+        f"- ticked: one — `todo:{parent_uid}`", "- renamed: two -> two renamed — `todo:2`",
+    ]
 # end def
 
 
@@ -748,10 +753,10 @@ def test_purge_commits_list_the_removed_todos_and_several_projects_are_prefixed(
     st.sync(cfg, [todo("a", "#a was open", status="COMPLETED"), todo("n", "#b newer")], None, False, purge_missing_=True, purge_complete_=True)
     subjects = run("log", "-4", "--format=%s").split("\n")[:3]
     assert subjects == ["[TODOs] purged completed todos for A.", "[TODOs] purged missing todos for A.", "[TODOs] synced todos for A, B."]
-    assert run("log", "-1", "--format=%b").strip() == "- removed: was open"
-    assert run("log", "-2", "--format=%b").split("\n\n")[1].strip() == "- removed: gone"
+    assert run("log", "-1", "--format=%b").strip() == "- removed: was open — `todo:a`"
+    assert run("log", "-2", "--format=%b").split("\n\n")[1].strip() == "- removed: gone — `todo:z`"
     assert run("log", "-3", "--format=%b").split("\n\n")[2].strip().split("\n") == [
-        "- [A] ticked: was open", "- [B] added: newer",
+        "- [A] ticked: was open — `todo:a`", "- [B] added: newer — `todo:n`",
     ]
 # end def
 
@@ -761,7 +766,7 @@ def test_a_long_list_is_cut_after_thirty_lines(tmp_path):
     cfg = st.Config(projects=[st.Project(name="A", tags=["a"], path=str(r))])
     st.sync(cfg, [todo(str(n), f"#a todo {n}") for n in range(34)], None, False)
     body = run("log", "-1", "--format=%b").strip().split("\n")
-    assert len(body) == 31 and body[0] == "- added: todo 0" and body[-1] == "- ... and 4 more"
+    assert len(body) == 31 and body[0] == "- added: todo 0 — `todo:0`" and body[-1] == "- ... and 4 more"
 # end def
 
 

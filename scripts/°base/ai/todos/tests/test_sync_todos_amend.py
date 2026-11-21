@@ -74,7 +74,9 @@ def test_two_syncs_become_one_commit_with_both_bodies(clone):
     assert run("log", "-1", "--format=%s").strip() == "[TODOs] synced todos for A."
     sync(r, [todo("1", "#a one", status="COMPLETED"), todo("2", "#a two")])
     assert count(run) == n
-    assert run("log", "-1", "--format=%b").strip().split("\n") == ["- added: one", "- ticked: one", "- added: two"]
+    assert run("log", "-1", "--format=%b").strip().split("\n") == [
+        "- added: one — `todo:1`", "- ticked: one — `todo:1`", "- added: two — `todo:2`",
+    ]
     assert run("show", "--name-only", "--format=", "HEAD").split() == [TODO_FILE]
 # end def
 
