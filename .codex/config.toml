@@ -3,9 +3,6 @@
 model = "gpt-6.2-sol"
 model_reasoning_effort = "medium"
 
-[plugins."openai-developers@openai-developers"]
-enabled = true
-
 # --- BEGIN generated mcp_servers (scripts/°base/ai/settings/sync.py) ---
 
 [mcp_servers."bugsink"]
@@ -68,6 +65,8 @@ command = "npx"
 args = ["-y", "envmcp", "--env-file", "ai/.env", "npx", "-y", "mcp-remote", "\"$COOLIFY_URL\"", "--header", "\"Authorization:Bearer $COOLIFY_TOKEN\""]
 
 # --- END generated mcp_servers ---
+[plugins."openai-developers@openai-developers"]
+enabled = true
 
 [plugins."skill-creator@claude-plugins-official"]
 enabled = true
