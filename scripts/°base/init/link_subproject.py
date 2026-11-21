@@ -3,8 +3,8 @@
 #
 # Idempotent per-subfolder setup for the monorepo case: creates relative
 # symlinks at <cwd>/.claude, <cwd>/.codex, <cwd>/ai/settings,
-# <cwd>/ai/references, <cwd>/ai/skills and <cwd>/.mcp.json pointing at their
-# monorepo-root counterparts, each <cwd>/.run/*.run.xml pointing at its
+# <cwd>/ai/references, <cwd>/ai/skills, <cwd>/.mcp.json and <cwd>/.worktreeinclude
+# pointing at their monorepo-root counterparts, each <cwd>/.run/*.run.xml pointing at its
 # monorepo-root counterpart, an <cwd>/ai/.env -> <git_root>/ai/.env symlink
 # (touching the monorepo-root ai/.env first if it doesn't exist yet, since
 # it's gitignored and not seeded any other way), an <cwd>/AGENTS.md ->
@@ -41,9 +41,9 @@
 #   ../scripts/°base/init/link_subproject.py
 #
 # `link_subproject.py --resync` (run from anywhere in the repo) is the git-hook
-# mode: after a merge or rebase it adds the missing per-file `.run` links and
-# drops dangling ones in every subproject (a folder with a tracked `.claude`
-# symlink), then commits just those paths. See `resync_all`/`commit_resync`.
+# mode: after a merge or rebase it adds missing `.worktreeinclude` and per-file
+# `.run` links and drops dangling `.run` links in every subproject (a folder with
+# a tracked `.claude` symlink), then commits just those paths.
 #
 # Safe to run multiple times — already-correct symlinks/seeded files are
 # left alone. Anything pre-existing that would be clobbered by a symlink is
@@ -362,6 +362,16 @@ def link_shared(rel: str) -> None:
 # end def
 
 
+def link_worktree_include(*, backup: bool = True) -> list[str]:
+    rel = ".worktreeinclude"
+    source = git_root / rel
+    if source.is_file() and link_path(rel, source, backup=backup):
+        return [rel]
+    # end if
+    return []
+# end def
+
+
 def copy_if_missing(rel: str, template_name: str) -> None:
     source = git_root / "scripts" / "°base" / "init" / "templates" / template_name
     target = sub_dir / rel
@@ -502,9 +512,8 @@ def commit_resync(paths: list[str], event: str | None) -> str | None:
 
 
 def resync_all(*, event: str | None = None, commit: bool = True) -> int:
-    # git-hook entry point (after a merge or rebase): brings the per-file
-    # `.run` links of every subproject up to date. Create-only and
-    # non-destructive, no seeding. Never fails the surrounding git command.
+    # git-hook entry point (after a merge or rebase): adds missing
+    # `.worktreeinclude` and `.run` links and prunes dangling `.run` links.
     global sub_dir
 
     touched: list[str] = []
@@ -512,6 +521,7 @@ def resync_all(*, event: str | None = None, commit: bool = True) -> int:
         sub_dir = sub
         try:
             changed = link_run_configs(backup=False) + prune_dangling_run_links()
+            changed += link_worktree_include(backup=False)
         except (subprocess.CalledProcessError, OSError) as e:
             print(f"re-syncing {sub} failed: {e}", file=sys.stderr)
             continue
@@ -740,6 +750,7 @@ def main() -> int:
     link_shared("ai/references")
     link_shared("ai/skills")
     link_shared(".mcp.json")
+    link_worktree_include()
     link_env()
     link_run_configs()
     touch_scratch_gitkeeps()

@@ -183,7 +183,7 @@ if command -v pre-commit >/dev/null 2>&1; then
   heal_self_referencing_legacy_hooks
   install_pre_commit_hook pre-commit
   install_pre_commit_hook commit-msg
-  # re-link subproject `.run` symlinks after a merge or rebase (see git/hooks/post/resync_subproject_links.py)
+  # Re-link subproject shared files after a merge or rebase.
   install_pre_commit_hook post-merge
   install_pre_commit_hook post-rewrite
   add_path_to_pre_commit_hooks

@@ -8390,3 +8390,7 @@ Probably `projects` should stay a dictionary like in the local file?
 ❯ Fix the _**4.** **Close**:_ step to contain the proper MCP call like in _Setup_'s **5.**
 > • [⧉ File `SKILL.md`: 1 line selected](../skills/todo-loop/SKILL.md#L26)
 
+› Fix the script linking subprojects and the git checkout hook relinking them to also symlink the `.worktreeinclude` files.
+
+› *the `.worktreeinclude` file.
+

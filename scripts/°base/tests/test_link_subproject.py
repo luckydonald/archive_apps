@@ -259,6 +259,7 @@ class LinkSubprojectEndToEndTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((sub_dir / ".claude").is_symlink())
         self.assertTrue((sub_dir / "ai" / ".env").is_symlink())
+        self.assertEqual(os.readlink(sub_dir / ".worktreeinclude"), "../.worktreeinclude")
 
         # Everything link_subproject touched should be staged (or, for
         # ai/.env, already committed) — nothing left untracked or unstaged.
@@ -401,11 +402,15 @@ class ResyncTests(unittest.TestCase):
         (self.sub_dir / ".run" / "mine.run.xml").symlink_to("nowhere.xml")
         (self.sub_dir / ".run" / "a.run.xml").unlink()
         (self.sub_dir / ".run" / "a.run.xml").write_text("local copy")
+        (self.repo_root / ".worktreeinclude").write_text("ai/.env\n")
+        (self.sub_dir / ".worktreeinclude").write_text(".env.local\n")
 
         link_subproject.resync_all()
 
         self.assertTrue((self.sub_dir / ".run" / "mine.run.xml").is_symlink())
         self.assertEqual((self.sub_dir / ".run" / "a.run.xml").read_text(), "local copy")
+        self.assertFalse((self.sub_dir / ".worktreeinclude").is_symlink())
+        self.assertEqual((self.sub_dir / ".worktreeinclude").read_text(), ".env.local\n")
     # end def
 
     def test_up_to_date_repo_makes_no_commit_and_rerun_is_a_no_op(self) -> None:
@@ -539,10 +544,12 @@ class ResyncTests(unittest.TestCase):
     # end def
 
     def test_wrapper_resyncs_after_merge_and_rebase(self) -> None:
+        (self.repo_root / ".worktreeinclude").write_text("ai/.env\n")
         self.stage_new_config()
         result = self.run_wrapper(None)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.committed_paths(), ["sub/.run/z.run.xml"])
+        self.assertEqual(self.committed_paths(), ["sub/.run/z.run.xml", "sub/.worktreeinclude"])
+        self.assertEqual(os.readlink(self.sub_dir / ".worktreeinclude"), "../.worktreeinclude")
 
         (self.repo_root / ".run" / "y.run.xml").write_text("y")
         git(["add", "-A"], self.repo_root)
