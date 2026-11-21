@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from .cli import RunContext, parse_args
-from .io import rm_retry
+from .io import rm_retry, set_beep
 from .steps import run_steps
 from .verify import merge_checksum_index
 
@@ -70,6 +70,7 @@ def _on_signal(signum: int, _frame: object) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     cfg = parse_args(argv if argv is not None else sys.argv[1:])
+    set_beep(cfg.beep)
     ctx = RunContext(cfg=cfg)
 
     atexit.register(_make_cleanup(ctx))

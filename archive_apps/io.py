@@ -12,9 +12,31 @@ from .cli import RunContext
 from .progress import ProgressBar
 
 
+_beep_enabled = True
+
+
+def set_beep(enabled: bool) -> None:
+    global _beep_enabled
+    _beep_enabled = enabled
+
+
+def alert_user(tty) -> None:
+    """Ring the terminal bell, and in iTerm2 also bounce the Dock icon once, to get the user's attention for a prompt."""
+    if not _beep_enabled:
+        return
+    try:
+        tty.write("\a")
+        if os.environ.get("TERM_PROGRAM") == "iTerm.app":
+            tty.write("\033]1337;RequestAttention=once\a")
+        tty.flush()
+    except Exception:
+        pass
+
+
 def tty_read(prompt: str, default: str = "") -> str:
     try:
-        with open("/dev/tty") as tty:
+        with open("/dev/tty", "r+") as tty:
+            alert_user(tty)
             sys.stderr.write(prompt)
             sys.stderr.flush()
             return tty.readline().rstrip("\n") or default
@@ -25,7 +47,8 @@ def tty_read(prompt: str, default: str = "") -> str:
 def tty_read_timeout(prompt: str, default: str, timeout: float) -> tuple[str, bool]:
     """Like tty_read, but gives up after `timeout` seconds. Returns (answer, timed_out)."""
     try:
-        with open("/dev/tty") as tty:
+        with open("/dev/tty", "r+") as tty:
+            alert_user(tty)
             sys.stderr.write(prompt)
             sys.stderr.flush()
             ready, _, _ = select.select([tty], [], [], timeout)

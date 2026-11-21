@@ -75,6 +75,12 @@ The order comes from `archive.order_apps`: apps without a zip for their installe
 
 **Atomic writes**: every output file is first written to a `.tmp` sibling and then `mv`'d into place. A `trap cleanup EXIT` removes any leftover `.tmp` files on exit.
 
+## Prompts
+
+Every interactive question goes through `io.tty_read` / `io.tty_read_timeout`, which call `io.alert_user` first: a terminal bell, plus an iTerm2 Dock bounce (`OSC 1337;RequestAttention=once`) when `TERM_PROGRAM` is `iTerm.app`.
+It is only sent when `/dev/tty` can be opened, so unattended runs stay silent.
+`--no-beep` disables it (`Config.beep`, applied via `io.set_beep` in `__main__`).
+
 ## Finder colors
 
 Zips in the destination get a Finder color label (`com.apple.FinderInfo`, `utils.set_finder_color`; silently skipped on filesystems without xattr support).
