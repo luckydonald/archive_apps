@@ -49,19 +49,24 @@ def combine(
     join: Literal['', ' '] | str = ' ',
 ) -> set[str]:
     if isinstance(a, str) and isinstance(b, str):
+        # Fast path
         # depending on the other being empty: `a + join + b` OR `a` / `b`
         return {a + join + b if a and b else a or b}
-    if isinstance(a, Iterable):
-        return {
-            *(combine(_a, b, join=join) for _a in a)
-        }
-    # second if -> so we know isinstance(a, str)
-    assert isinstance(a, str), repr(a)
-    # because also first if -> we know isinstance(b, Iterable) because they can't both be str
-    assert isinstance(b, Iterable), repr(b)
-    return {
-        *(combine(a, _b, join=join) for _b in b)
-    }
+
+    results: set[str] = set()
+
+    if not isinstance(a, str):  # is Iterable
+        for _a in a:
+            results.update(combine(_a, b, join=join))
+    else:
+        # second if -> so we know isinstance(a, str)
+        assert isinstance(a, str), repr(a)
+        # because also first if -> we know isinstance(b, Iterable) because they can't both be str
+        assert isinstance(b, Iterable), repr(b)
+        for _b in b:
+            results.update(combine(a, _b, join=join))
+
+    return results
 
 def either_order(
     a: str | Iterable[str],
