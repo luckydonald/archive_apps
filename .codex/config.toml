@@ -1,4 +1,7 @@
-# [plugins].*.enabled below is managed by scripts/°base/ai/settings/sync.py from ai/settings/settings.json's enabledPlugins; other content here is preserved.
+# `[mcp_servers].*` and `[plugins].*.enabled` below is managed by scripts/°base/ai/settings/sync.py from ai/settings/settings.json's enabledPlugins; other content here is preserved.
+
+model = "gpt-6.2-sol"
+model_reasoning_effort = "medium"
 
 [plugins."openai-developers@openai-developers"]
 enabled = true
